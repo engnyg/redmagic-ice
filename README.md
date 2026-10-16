@@ -2,19 +2,15 @@
 
 <img src="RedMagicIce/Assets.xcassets/AppIcon.appiconset/AppIcon.png" width="120" alt="極凍 Cryo 圖示">
 
-參考 Android「冰環」(`com.magcooler.binghuan.v2646` v2.8.91)的藍牙協議製作的 iOS App,SwiftUI + CoreBluetooth。
-協議由 APK 反編譯得到,並與官方 App 抓包([Maheidem/redmagic-cooler-ble](https://github.com/Maheidem/redmagic-cooler-ble))交叉驗證,詳見 [docs/PROTOCOL.md](docs/PROTOCOL.md)。
+SwiftUI + CoreBluetooth 製作的紅魔散熱器 iOS 控制 App。
 
-## 已移植
+## 功能
 - 掃描/連線紅魔散熱器、自動重連上次裝置
 - 散熱開關、10 檔手動檔位、智慧溫控、破壞神
-- 燈光(炫彩 / 呼吸 / 單色呼吸 / 常亮 / 關 / 電池溫度 + 15 個預設色)
+- 燈光(炫彩 / 多色呼吸 / 單色呼吸 / 常亮 / 關燈 + 15 個預設色)
 - 即時溫度、轉速、功率、韌體版本、通訊日誌
 - 動態島 / 鎖屏即時動態(Live Activity):緊湊態顯示溫度,展開顯示模式、轉速、功率;連線後自動開啟,「更多」裡可關閉
 - App 驅動的動態燈效、溫度/檔位/模式聯動燈光、自定義背景(純色/漸變/相簿照片)
-
-## 無法移植(iOS 無對應能力)
-懸浮窗、通知欄/小米超級島(iOS 用動態島代替)、快捷設定磁貼、Shizuku、讀取手機電池/CPU 溫度做聯動、充電自動化、靜默安裝等。
 
 ## 構建(需 macOS + Xcode 15+)
 ```
