@@ -1,6 +1,8 @@
-# 冰環 iOS 版(紅魔散熱器控制器)
+# 極凍 Cryo — 紅魔散熱器 iOS 控制 App
 
-Android「冰環」(`com.magcooler.binghuan.v2646` v2.8.91)的 iOS 移植,SwiftUI + CoreBluetooth。
+<img src="RedMagicIce/Assets.xcassets/AppIcon.appiconset/AppIcon.png" width="120" alt="極凍 Cryo 圖示">
+
+參考 Android「冰環」(`com.magcooler.binghuan.v2646` v2.8.91)的藍牙協議製作的 iOS App,SwiftUI + CoreBluetooth。
 協議由 APK 反編譯得到,詳見 [docs/PROTOCOL.md](docs/PROTOCOL.md)。
 
 ## 已移植

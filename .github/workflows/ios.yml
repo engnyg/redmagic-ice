@@ -24,9 +24,9 @@ jobs:
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" | tail -n 30
           mkdir -p Payload
           cp -R build/Build/Products/Release-iphoneos/RedMagicIce.app Payload/
-          zip -qr RedMagicIce-unsigned.ipa Payload
-          ls -la RedMagicIce-unsigned.ipa
+          zip -qr Cryo-unsigned.ipa Payload
+          ls -la Cryo-unsigned.ipa
       - uses: actions/upload-artifact@v4
         with:
-          name: RedMagicIce-unsigned-ipa
-          path: RedMagicIce-unsigned.ipa
+          name: Cryo-unsigned-ipa
+          path: Cryo-unsigned.ipa

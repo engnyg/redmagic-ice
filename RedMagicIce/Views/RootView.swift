@@ -44,9 +44,13 @@ struct ScanView: View {
         ScrollView {
             VStack(spacing: 18) {
                 Spacer(minLength: 60)
-                Image(systemName: "snowflake").font(.system(size: 64, weight: .light)).foregroundStyle(.white)
-                    .frame(width: 130, height: 130).glass(Circle())
-                Text("冰環").font(.system(size: 34, weight: .bold, design: .rounded)).foregroundStyle(.white)
+                Image("Logo").resizable().scaledToFit()
+                    .frame(width: 168, height: 168)
+                    .shadow(color: .cyan.opacity(0.45), radius: 24)
+                VStack(spacing: 4) {
+                    Text("極凍").font(.system(size: 34, weight: .bold, design: .rounded)).foregroundStyle(.white)
+                    Text("CRYO · 散熱器控制").font(.caption.weight(.semibold)).tracking(2).foregroundStyle(.white.opacity(0.6))
+                }
                 if ble.state != .poweredOn {
                     Text("請在系統設定中開啟藍牙並允許本 App 使用藍牙")
                         .font(.footnote).foregroundStyle(.white.opacity(0.7)).multilineTextAlignment(.center)
@@ -97,7 +101,7 @@ struct MoreView: View {
                     Toggle("動態島 / 鎖屏即時動態", isOn: $live.enabled)
                     Text(live.systemAllowed
                          ? "連線後自動在動態島顯示溫度,長按展開可看轉速與功率。"
-                         : "系統已關閉即時動態:請到 設定 → 冰環 → 即時動態 開啟。")
+                         : "系統已關閉即時動態:請到 設定 → 極凍 → 即時動態 開啟。")
                         .font(.caption).foregroundStyle(.white.opacity(0.6))
                 }.foregroundStyle(.white).glassCard()
                 SectionTitle("記憶")
