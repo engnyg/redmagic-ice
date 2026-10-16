@@ -1,5 +1,7 @@
 name: iOS build
 on: [push, workflow_dispatch]
+permissions:
+  contents: write      # 發佈 Release(App 內更新提示讀取)
 jobs:
   build:
     runs-on: macos-latest
@@ -21,7 +23,7 @@ jobs:
         run: |
           xcodebuild build -scheme RedMagicIce -configuration Release \
             -destination 'generic/platform=iOS' -derivedDataPath build \
-            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" | tail -n 30
+            CURRENT_PROJECT_VERSION=${{ github.run_number }} CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" | tail -n 30
           mkdir -p Payload
           cp -R build/Build/Products/Release-iphoneos/RedMagicIce.app Payload/
           zip -qr Cryo-unsigned.ipa Payload
@@ -30,3 +32,16 @@ jobs:
         with:
           name: Cryo-unsigned-ipa
           path: Cryo-unsigned.ipa
+      - name: Publish release (for in-app update check)
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="build-${{ github.run_number }}"
+          NOTES=$(git log -1 --pretty=%B | sed '/^Co-Authored-By/d;/^Claude-Session/d')
+          gh release create "$TAG" Cryo-unsigned.ipa --target "${{ github.sha }}" \
+            --title "極凍 Cryo build ${{ github.run_number }}" --notes "$NOTES" --latest
+          # 只保留最近 10 個版本
+          gh release list --limit 100 --json tagName --jq '.[10:][].tagName' | while read t; do
+            gh release delete "$t" --cleanup-tag -y || true
+          done

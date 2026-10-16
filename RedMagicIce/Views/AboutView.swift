@@ -2,6 +2,8 @@ import SwiftUI
 
 struct AboutView: View {
     @EnvironmentObject var ble: CoolerBLEManager
+    @EnvironmentObject var updates: UpdateChecker
+    @Environment(\.openURL) private var openURL
     @Environment(\.dismiss) private var dismiss
 
     private var version: String {
@@ -24,6 +26,8 @@ struct AboutView: View {
                         Text("版本 \(version)").font(.footnote.monospacedDigit()).foregroundStyle(.white.opacity(0.75))
                     }
                     .frame(maxWidth: .infinity).padding(.top, 8)
+
+                    card("更新") { updateSection }
 
                     card("簡介") {
                         Text("用藍牙直接控制紅魔磁吸散熱背夾:散熱開關、1~10 檔手動檔位、智慧溫控、破壞神,以及三種自動溫控(自由變頻、電池溫控、目標溫度)。支援燈光、動態燈效、動態島即時動態與自訂背景。")
@@ -48,6 +52,30 @@ struct AboutView: View {
             }
         }
         .preferredColorScheme(.dark)
+    }
+
+    @ViewBuilder private var updateSection: some View {
+        switch updates.state {
+        case .idle: Text("尚未檢查更新。")
+        case .checking: HStack { ProgressView(); Text("檢查中…") }
+        case .upToDate: Label("已是最新版本(build \(updates.currentBuild))", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
+        case .failed(let e): Label("檢查失敗:\(e)", systemImage: "wifi.exclamationmark").foregroundStyle(.orange)
+        case .available(let r):
+            VStack(alignment: .leading, spacing: 8) {
+                Label("有新版本 build \(r.build)(目前 build \(updates.currentBuild))", systemImage: "arrow.down.circle.fill").foregroundStyle(.cyan)
+                if !r.notes.isEmpty { Text(r.notes).font(.caption).foregroundStyle(.white.opacity(0.75)) }
+                GlassGroup {
+                    FlowRow {
+                        GlassChip(title: "查看並下載", symbol: "safari", selected: true, tint: .cyan) { openURL(r.pageURL) }
+                        if let ipa = r.ipaURL,
+                           let alt = URL(string: "altstore://install?url=" + (ipa.absoluteString.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? "")) {
+                            GlassChip(title: "用 AltStore 開啟", symbol: "square.and.arrow.down") { openURL(alt) }
+                        }
+                    }
+                }
+            }
+        }
+        GlassChip(title: "檢查更新", symbol: "arrow.clockwise") { Task { await updates.check(force: true) } }
     }
 
     private func card<C: View>(_ title: String, @ViewBuilder _ content: () -> C) -> some View {

@@ -19,8 +19,34 @@ extension View {
     func appPage(_ accent: Color) -> some View { self.background(AppBackground(accent: accent)) }
 }
 
+struct UpdateBanner: View {
+    @EnvironmentObject var updates: UpdateChecker
+    @Environment(\.openURL) private var openURL
+    var body: some View {
+        if let r = updates.banner {
+            HStack(spacing: 10) {
+                Image(systemName: "arrow.down.circle.fill").foregroundStyle(.cyan)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("有新版本 build \(r.build)").font(.subheadline.weight(.semibold))
+                    Text("點此查看並下載").font(.caption2).foregroundStyle(.white.opacity(0.65))
+                }
+                Spacer()
+                Button { updates.dismissBanner() } label: { Image(systemName: "xmark").font(.footnote.weight(.bold)) }
+                    .buttonStyle(.plain)
+            }
+            .foregroundStyle(.white)
+            .padding(.horizontal, 16).padding(.vertical, 10)
+            .glass(Capsule(), tint: .cyan, interactive: true)
+            .padding(.horizontal, 16)
+            .onTapGesture { openURL(r.pageURL) }
+            .transition(.move(edge: .top).combined(with: .opacity))
+        }
+    }
+}
+
 struct RootView: View {
     @EnvironmentObject var ble: CoolerBLEManager
+    @EnvironmentObject var updates: UpdateChecker
 
     var body: some View {
         ZStack {
@@ -35,6 +61,8 @@ struct RootView: View {
                 ScanView()
             }
         }
+        .overlay(alignment: .top) { UpdateBanner().padding(.top, 4) }
+        .animation(.easeInOut, value: updates.banner)
     }
 }
 

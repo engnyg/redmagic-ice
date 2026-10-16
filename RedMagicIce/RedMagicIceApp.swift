@@ -8,6 +8,7 @@ struct RedMagicIceApp: App {
     @StateObject private var live = LiveActivityController()
     @StateObject private var memory = MemoryController()
     @StateObject private var auto = AutoController()
+    @StateObject private var updates = UpdateChecker()
     var body: some Scene {
         WindowGroup {
             RootView()
@@ -17,8 +18,10 @@ struct RedMagicIceApp: App {
                 .environmentObject(live)
                 .environmentObject(memory)
                 .environmentObject(auto)
+                .environmentObject(updates)
                 .preferredColorScheme(.dark)
                 .onAppear { light.attach(ble); live.attach(ble); auto.attach(ble); memory.attach(ble, light, auto) }
+                .task { await updates.check() }
         }
     }
 }
