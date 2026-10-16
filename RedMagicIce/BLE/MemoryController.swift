@@ -2,13 +2,14 @@ import Foundation
 import Combine
 
 enum StoredMode: Codable, Equatable {
-    case manual(level: Int), smart, boost
+    case manual(level: Int), smart, boost, auto(AutoKind)
 
     var title: String {
         switch self {
         case .manual(let l): return "手動 \(l + 1) 檔"
         case .smart: return "智慧溫控"
         case .boost: return "破壞神"
+        case .auto(let k): return k.title
         }
     }
 }
@@ -27,6 +28,7 @@ final class MemoryController: ObservableObject {
 
     private weak var ble: CoolerBLEManager?
     private weak var light: LightController?
+    private weak var auto: AutoController?
     private var bag = Set<AnyCancellable>()
 
     init() {
@@ -36,10 +38,15 @@ final class MemoryController: ObservableObject {
         if let data = d.data(forKey: Self.modeKey) { lastMode = try? JSONDecoder().decode(StoredMode.self, from: data) }
     }
 
-    func attach(_ ble: CoolerBLEManager, _ light: LightController) {
+    func attach(_ ble: CoolerBLEManager, _ light: LightController, _ auto: AutoController) {
         guard self.ble == nil else { return }
         self.ble = ble
         self.light = light
+        self.auto = auto
+        auto.$active.removeDuplicates().sink { [weak self] k in
+            guard let self, self.enabled, let k else { return }
+            self.save(.auto(k))
+        }.store(in: &bag)
 
         ble.onUserPowerOn = { [weak self] in self?.restoreMode() }
 
@@ -53,7 +60,7 @@ final class MemoryController: ObservableObject {
 
     // MARK: 記錄
     private func record(_ m: CoolerWorkMode) {
-        guard enabled, let ble, ble.connected else { return }
+        guard enabled, let ble, ble.connected, ble.autoModeTitle == nil else { return }   // 自動溫控期間的檔位變化不當作手動
         let stored: StoredMode
         switch m {
         case .manual(let l): stored = .manual(level: l)
@@ -61,6 +68,10 @@ final class MemoryController: ObservableObject {
         case .boost: stored = .boost
         case .idle: return          // 關機/待機不覆蓋記憶
         }
+        save(stored)
+    }
+
+    private func save(_ stored: StoredMode) {
         guard stored != lastMode else { return }
         lastMode = stored
         if let d = try? JSONEncoder().encode(stored) { UserDefaults.standard.set(d, forKey: Self.modeKey) }
@@ -95,6 +106,7 @@ final class MemoryController: ObservableObject {
         case .manual(let l): ble.setManual(level: l)
         case .smart: ble.setSmart(true)
         case .boost: ble.setBoost(true)
+        case .auto(let k): auto?.start(k)
         }
     }
 }

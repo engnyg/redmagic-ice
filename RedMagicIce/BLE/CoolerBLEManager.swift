@@ -15,6 +15,7 @@ final class CoolerBLEManager: NSObject, ObservableObject {
     @Published var state: CBManagerState = .unknown
     @Published var discovered: [DiscoveredCooler] = []
     @Published var connected = false
+    @Published var autoModeTitle: String?    // 自動溫控進行中(自由變頻 / 電池溫控 / 目標溫度)
     @Published var offlinePreview = false   // 未連線時先瀏覽介面(不會傳送指令)
     @Published var scanning = false
     @Published var deviceName = ""
@@ -65,10 +66,14 @@ final class CoolerBLEManager: NSObject, ObservableObject {
 
     func disconnect() { if let p = peripheral { central.cancelPeripheralConnection(p) } }
 
+    /// 使用者手動切換模式 / 關機時的回呼(用來結束自動溫控)
+    var onUserControl: (() -> Void)?
+
     /// 使用者在 App 內開機後的回呼(用來恢復上次模式)
     var onUserPowerOn: (() -> Void)?
 
     func setPower(_ on: Bool) {
+        if !on { onUserControl?() }
         write(.powerMode, on ? CoolerProtocol.powerOn : CoolerProtocol.powerOff, on ? "散熱 ON" : "散熱 OFF")
         if !on { mode = .idle }
         if on {
@@ -76,7 +81,8 @@ final class CoolerBLEManager: NSObject, ObservableObject {
         }
     }
 
-    func setManual(level: Int) {
+    func setManual(level: Int, fromAuto: Bool = false) {
+        if !fromAuto { onUserControl?() }
         write(.autoTemp, CoolerProtocol.flag(false), "智慧 OFF")
         write(.boost, CoolerProtocol.flag(false), "破壞神 OFF")
         if !running { write(.powerMode, CoolerProtocol.powerOn, "散熱 ON") }
@@ -85,6 +91,7 @@ final class CoolerBLEManager: NSObject, ObservableObject {
     }
 
     func setSmart(_ on: Bool) {
+        onUserControl?()
         write(.boost, CoolerProtocol.flag(false), "破壞神 OFF")
         if on && !running { write(.powerMode, CoolerProtocol.powerOn, "散熱 ON") }
         write(.autoTemp, CoolerProtocol.flag(on), on ? "智慧溫控 ON" : "智慧溫控 OFF")
@@ -94,6 +101,7 @@ final class CoolerBLEManager: NSObject, ObservableObject {
     /// 破壞神(超頻,UUID 1017)。流程與原版 enqueuePureBoostSequence 一致:
     /// 智慧 OFF → 散熱 ON → 最高檔 → 1017=01,並在 1.3s / 2.1s 各確認一次。
     func setBoost(_ on: Bool) {
+        onUserControl?()
         write(.autoTemp, CoolerProtocol.flag(false), "智慧 OFF")
         guard on else {
             write(.boost, CoolerProtocol.flag(false), "破壞神 OFF")
@@ -114,8 +122,15 @@ final class CoolerBLEManager: NSObject, ObservableObject {
         mode = .boost
     }
 
+    /// 自動溫控專用:只寫 1012(模式切換的前置寫入已在 start 時由 setManual 完成)
+    func setFanLevel(_ index: Int) {
+        write(.fanMode, CoolerProtocol.fanLevel(index: index), "自動 \(index + 1) 檔")
+        mode = .manual(level: index)
+    }
+
     /// 實驗:向 1012 寫入任意原始值(原版最高只寫到 80)。
     func setFanRaw(_ value: UInt8, boost: Bool) {
+        onUserControl?()
         write(.autoTemp, CoolerProtocol.flag(false), "實驗:智慧 OFF")
         write(.boost, CoolerProtocol.flag(boost), boost ? "實驗:破壞神 ON" : "實驗:破壞神 OFF")
         if !running { write(.powerMode, CoolerProtocol.powerOn, "散熱 ON") }

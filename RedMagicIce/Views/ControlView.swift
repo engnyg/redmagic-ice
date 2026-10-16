@@ -2,11 +2,13 @@ import SwiftUI
 
 struct ControlView: View {
     @EnvironmentObject var ble: CoolerBLEManager
+    @EnvironmentObject var auto: AutoController
     @State private var levelIndex = 0
+    @State private var showAuto = false
 
     private var smartOn: Bool { ble.mode == .smart }
     private var boostOn: Bool { ble.mode == .boost }
-    private var manualOn: Bool { if case .manual = ble.mode { return true }; return false }
+    private var manualOn: Bool { if case .manual = ble.mode { return ble.autoModeTitle == nil }; return false }
     private let levelCount = CoolerProtocol.fanLevelValues.count
 
     var body: some View {
@@ -21,6 +23,7 @@ struct ControlView: View {
                 header
                 stats
                 modes
+                autoCard
                 fanLevels
             }
             .padding(.horizontal, 16).padding(.top, 8)
@@ -77,6 +80,27 @@ struct ControlView: View {
                 }
             }
         }
+    }
+
+    private var autoCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SectionTitle("自動溫控")
+            GlassGroup {
+                FlowRow {
+                    ForEach(AutoKind.allCases) { k in
+                        GlassChip(title: k.title, symbol: k.symbol, selected: auto.active == k, tint: .mint) {
+                            if auto.active == k { auto.stop() } else { auto.start(k) }
+                        }
+                        .disabled(!ble.connected)
+                    }
+                    GlassChip(title: "設定", symbol: "slider.horizontal.2.square") { showAuto = true }
+                }
+            }
+            if let a = auto.active {
+                Text("\(a.title):\(auto.status)").font(.footnote).foregroundStyle(.white.opacity(0.8)).padding(.leading, 6)
+            }
+        }
+        .sheet(isPresented: $showAuto) { AutoControlView() }
     }
 
     private var fanLevels: some View {

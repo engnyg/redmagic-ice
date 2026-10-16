@@ -37,14 +37,14 @@ final class LiveActivityController: ObservableObject {
         var mode = "off", level: Int?
         if ble.running {
             switch ble.mode {
-            case .manual(let l): mode = "manual"; level = l
+            case .manual(let l): mode = ble.autoModeTitle == nil ? "manual" : "auto"; level = l
             case .smart: mode = "smart"
             case .boost: mode = "boost"
             case .idle: mode = "idle"
             }
         }
         return .init(temperatureC: ble.temperatureC.map { Int($0.rounded()) }, rpm: ble.rpm, powerW: ble.powerW,
-                     running: ble.running, mode: mode, level: level)
+                     running: ble.running, mode: mode, level: level, autoName: ble.autoModeTitle)
     }
 
     func sync() {

@@ -46,4 +46,29 @@ final class CoolerProtocolTests: XCTestCase {
         XCTAssertEqual(LightFrames.levelColor(level: 9, count: 10), red)
         XCTAssertEqual(RGB.white.scaled(0.5), RGB(r: 128, g: 128, b: 128))
     }
+
+    func testAutoCurve() {
+        let c = TempCurve.freeDefault
+        XCTAssertEqual(c.level(at: -20), 1)
+        XCTAssertEqual(c.level(at: 40), 10)
+        XCTAssertEqual(c.level(at: 2.5), 2.5, accuracy: 0.001)
+        XCTAssertEqual(AutoLogic.curveIndex(curve: c, temp: 25, current: nil), 9)
+        // 遲滯:目標 3.4 檔,目前 3 檔(差 0.4 < 0.55)保持不動
+        XCTAssertEqual(AutoLogic.curveIndex(curve: c, temp: 7, current: 2), 2)
+        XCTAssertEqual(AutoLogic.curveIndex(curve: .batteryDefault, temp: 50, current: nil), 9)
+        XCTAssertEqual(AutoLogic.curveIndex(curve: .batteryDefault, temp: 30, current: nil), 0)
+    }
+
+    func testTargetControl() {
+        XCTAssertEqual(AutoLogic.targetBaseIndex(diff: -3), 0)
+        XCTAssertEqual(AutoLogic.targetBaseIndex(diff: 1.5), 1)
+        XCTAssertEqual(AutoLogic.targetBaseIndex(diff: 5), 4)
+        XCTAssertEqual(AutoLogic.targetBaseIndex(diff: 12), 9)
+        XCTAssertEqual(AutoLogic.targetIndex(cooler: 24, target: 18, current: nil), 4)
+        // 升檔立即,降檔需多降 0.7℃
+        XCTAssertEqual(AutoLogic.targetIndex(cooler: 20.4, target: 18, current: 2), 2)   // diff 2.4:base=2,持平
+        XCTAssertEqual(AutoLogic.targetIndex(cooler: 19.5, target: 18, current: 2), 2)   // diff 1.5:base=1,但 down(2.2)=2,遲滯內保持
+        XCTAssertEqual(AutoLogic.targetIndex(cooler: 18.2, target: 18, current: 2), 0)   // diff 0.2:降到 0
+        XCTAssertEqual(AutoLogic.targetIndex(cooler: 26, target: 18, current: 2), 6)     // diff 8:立即升檔
+    }
 }
