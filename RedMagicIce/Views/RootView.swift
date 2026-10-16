@@ -20,7 +20,7 @@ struct RootView: View {
     var body: some View {
         ZStack {
             AppBackground(accent: ble.accent)
-            if ble.connected {
+            if ble.connected || ble.offlinePreview {
                 TabView {
                     ControlView().tabItem { Label("控制", systemImage: "fanblades.fill") }
                     LightView().tabItem { Label("灯光", systemImage: "lightbulb.led.fill") }
@@ -49,6 +49,7 @@ struct ScanView: View {
                 GlassChip(title: ble.scanning ? "扫描中…" : "扫描散热器", symbol: "dot.radiowaves.left.and.right",
                           selected: ble.scanning, tint: .cyan) { ble.startScan() }
                     .disabled(ble.state != .poweredOn || ble.scanning)
+                GlassChip(title: "不连接,先看看界面", symbol: "eye") { ble.offlinePreview = true }
                 GlassGroup {
                     VStack(spacing: 10) {
                         ForEach(ble.discovered) { d in
@@ -102,7 +103,11 @@ struct MoreView: View {
                     FlowRow {
                         GlassChip(title: "通信日志", symbol: "doc.text") { showLog = true }
                         GlassChip(title: "超频探测(实验)", symbol: "flame") { showLab = true }
-                        GlassChip(title: "断开连接", symbol: "bolt.slash.fill", selected: true, tint: .red) { ble.disconnect() }
+                        if ble.connected {
+                            GlassChip(title: "断开连接", symbol: "bolt.slash.fill", selected: true, tint: .red) { ble.disconnect() }
+                        } else {
+                            GlassChip(title: "返回扫描", symbol: "dot.radiowaves.left.and.right", selected: true, tint: .cyan) { ble.offlinePreview = false }
+                        }
                     }
                 }
             }

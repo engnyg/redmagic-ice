@@ -12,6 +12,12 @@ struct ControlView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
+                if !ble.connected {
+                    Label("预览模式:未连接散热器,操作不会发送", systemImage: "eye")
+                        .font(.footnote.weight(.semibold)).foregroundStyle(.white)
+                        .frame(maxWidth: .infinity).padding(10)
+                        .glass(Capsule(), tint: .orange)
+                }
                 header
                 stats
                 modes

@@ -15,6 +15,7 @@ final class CoolerBLEManager: NSObject, ObservableObject {
     @Published var state: CBManagerState = .unknown
     @Published var discovered: [DiscoveredCooler] = []
     @Published var connected = false
+    @Published var offlinePreview = false   // 未连接时先浏览界面(不会发送指令)
     @Published var scanning = false
     @Published var deviceName = ""
     @Published var temperatureC: Float?
@@ -228,6 +229,7 @@ extension CoolerBLEManager: CBPeripheralDelegate {
         }
         if chars[.powerMode] != nil, chars[.status] != nil, !connected {
             connected = true
+            offlinePreview = false
             addLog("已连接并验证特征")
             startPolling()
         }
