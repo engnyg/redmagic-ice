@@ -27,6 +27,7 @@ final class CoolerBLEManager: NSObject, ObservableObject {
     @Published var firmware = ""
     @Published var log: [String] = []
     @Published var lastWriteError: String?
+    @Published var lightNoResponseSupported = false   // 1013 是否支援免回覆寫入(快速燈效)
     @Published var lastLightRaw: String?   // 1013 讀回/通知(燈光探測用)
     @Published var fanReadback: Int?     // 1012 讀回值(超頻探測用)
 
@@ -150,9 +151,16 @@ final class CoolerBLEManager: NSObject, ObservableObject {
 
     /// 軟體燈效逐幀傳送:佇列忙就丟幀(與原版一致,風扇/模式命令優先),不寫日誌避免刷屏。
     @discardableResult
-    func sendLightFrame(_ rgb: RGB) -> Bool {
-        guard connected, chars[.light] != nil, !writing, queue.isEmpty else { return false }
-        queue.append((.light, CoolerProtocol.lightPayload(.solid(rgb: rgb.tuple)), "燈光幀"))
+    func sendLightFrame(_ rgb: RGB, fast: Bool = false) -> Bool {
+        guard connected, let ch = chars[.light], let p = peripheral, !writing, queue.isEmpty else { return false }
+        let data = CoolerProtocol.lightPayload(.solid(rgb: rgb.tuple))
+        // 快速燈效:特徵支援免回覆寫入時直接送出,不必等設備回覆(仍只在佇列空閒時送,風扇命令優先)
+        if fast, ch.properties.contains(.writeWithoutResponse) {
+            guard p.canSendWriteWithoutResponse else { return false }
+            p.writeValue(data, for: ch, type: .withoutResponse)
+            return true
+        }
+        queue.append((.light, data, "燈光幀"))
         pump()
         return true
     }
@@ -249,6 +257,7 @@ extension CoolerBLEManager: CBPeripheralDelegate {
             case .power where chars[.power] != nil: break
             default: chars[key] = ch
             }
+            if key == .light { lightNoResponseSupported = ch.properties.contains(.writeWithoutResponse) }
             if ch.properties.contains(.notify) || ch.properties.contains(.indicate) { p.setNotifyValue(true, for: ch) }
             if ch.properties.contains(.read) { p.readValue(for: ch) }
         }

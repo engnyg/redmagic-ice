@@ -162,9 +162,24 @@ struct LightView: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack { Image(systemName: "sun.max.fill"); Slider(value: $light.settings.brightness, in: 0.05...1) }
             HStack {
-                Image(systemName: "hare.fill")      // 左=快(幀間隔 0.6s)
-                Slider(value: $light.settings.speed, in: 0.6...2.0) { editing in if !editing { light.speedChanged() } }
-                Image(systemName: "tortoise.fill")  // 右=慢(2s)
+                Image(systemName: "hare.fill")      // 左=快
+                Slider(value: $light.settings.speed, in: LightSettings.minInterval(fast: light.settings.isFast)...2.0) { editing in
+                    if !editing { light.speedChanged() }
+                }
+                Image(systemName: "tortoise.fill")  // 右=慢(2 秒)
+            }
+            HStack {
+                Text(String(format: "每 %.1f 秒 1 幀", light.settings.speed))
+                Spacer()
+                if case .software = active { Text(String(format: "實際約 %.1f 幀/秒", light.measuredFPS)) }
+            }
+            .font(.caption.monospacedDigit()).foregroundStyle(.white.opacity(0.75))
+            Toggle("快速燈效(實驗)", isOn: Binding(get: { light.settings.isFast }, set: { light.setFastMode($0) }))
+            if light.settings.isFast {
+                Text(ble.lightNoResponseSupported
+                     ? "此散熱器的燈光特徵支援免回覆寫入,快速模式會直接送出,最快每 0.1 秒一幀。若出現卡頓、調檔變慢或斷線,請關閉此開關。"
+                     : "此散熱器的燈光特徵不支援免回覆寫入,每幀仍須等設備回覆,實際幀率會低於設定值。若出現卡頓、調檔變慢或斷線,請關閉此開關。")
+                    .font(.caption).foregroundStyle(.yellow.opacity(0.85))
             }
             HStack {
                 Text("亮度對動態燈效、常亮/呼吸顏色生效;速度僅對動態燈效生效。")

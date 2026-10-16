@@ -40,7 +40,10 @@ struct LinkedLight: Codable, Equatable {
 }
 
 struct LightSettings: Codable, Equatable {
-    var speed: Double = 1.0            // 軟體燈效幀間隔(秒),最小 0.6
+    var speed: Double = 1.0            // 軟體燈效幀間隔(秒),一般最小 0.6(原版限制),快速模式最小 0.1
+    var fastMode: Bool?                // 快速燈效(實驗);用 Optional 讓舊版存檔仍可解碼
+    var isFast: Bool { fastMode ?? false }
+    static func minInterval(fast: Bool) -> Double { fast ? 0.1 : 0.6 }
     var brightness: Double = 1.0       // 軟體亮度(縮放 RGB,硬體無亮度命令)
     var solid = RGB(r: 67, g: 135, b: 232)
     var colors = LightFrames.defaultColors
@@ -69,6 +72,8 @@ final class LightController: ObservableObject {
 
     @Published private(set) var active: Active = .none { didSet { UserDefaults.standard.set(active.storageKey, forKey: Self.activeKey) } }
     @Published var settings: LightSettings { didSet { save() } }
+    @Published private(set) var measuredFPS: Double = 0
+    private var sentTimes: [Date] = []
 
     private weak var ble: CoolerBLEManager?
     private var timer: Timer?
@@ -133,6 +138,12 @@ final class LightController: ObservableObject {
     func stop() { stopEngine(); active = .none }
     func speedChanged() { if case .software = active { restartTimer() } }
 
+    func setFastMode(_ on: Bool) {
+        settings.fastMode = on
+        settings.speed = max(settings.speed, LightSettings.minInterval(fast: on))
+        speedChanged()
+    }
+
     // MARK: 內部
     private func begin(_ a: Active) {
         stopEngine()
@@ -143,13 +154,13 @@ final class LightController: ObservableObject {
         tick()
     }
 
-    private func stopEngine() { timer?.invalidate(); timer = nil }
+    private func stopEngine() { timer?.invalidate(); timer = nil; sentTimes.removeAll(); measuredFPS = 0 }
 
     private func restartTimer() {
         timer?.invalidate(); timer = nil
         let interval: TimeInterval
         switch active {
-        case .software: interval = max(0.6, settings.speed)
+        case .software: interval = max(LightSettings.minInterval(fast: settings.isFast), settings.speed)
         case .tempLinked, .levelLinked: interval = 1.5
         default: return
         }
@@ -161,7 +172,13 @@ final class LightController: ObservableObject {
         switch active {
         case .software(let e):
             let c = LightFrames.frame(e, index: frame, colors: settings.colors, solid: settings.solid)
-            if ble.sendLightFrame(c.scaled(settings.brightness)) { frame += 1 }
+            if ble.sendLightFrame(c.scaled(settings.brightness), fast: settings.isFast) {
+                frame += 1
+                let now = Date()
+                sentTimes.append(now)
+                sentTimes.removeAll { now.timeIntervalSince($0) > 3 }
+                measuredFPS = Double(sentTimes.count) / 3
+            }
         case .tempLinked:
             guard let t = ble.temperatureC else { return }
             sendOnChange("t", .breathMono(rgb: LightFrames.tempBandColor(t).scaled(settings.brightness).tuple))
