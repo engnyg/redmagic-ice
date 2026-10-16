@@ -26,6 +26,7 @@ final class CoolerBLEManager: NSObject, ObservableObject {
     @Published var firmware = ""
     @Published var log: [String] = []
     @Published var lastWriteError: String?
+    @Published var lastLightRaw: String?   // 1013 讀回/通知(燈光探測用)
     @Published var fanReadback: Int?     // 1012 讀回值(超頻探測用)
 
     private var central: CBCentralManager!
@@ -116,6 +117,9 @@ final class CoolerBLEManager: NSObject, ObservableObject {
         mode = boost ? .boost : .manual(level: CoolerProtocol.fanLevelValues.count - 1)
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in self?.readValue(.fanMode) }
     }
+
+    /// 實驗:直接寫入任意位元組到指定特徵(with response)。
+    func writeRaw(_ c: CoolerChar, _ data: Data, label: String) { write(c, data, label) }
 
     func readValue(_ c: CoolerChar) {
         if let p = peripheral, let ch = chars[c], ch.properties.contains(.read) { p.readValue(for: ch) }
@@ -249,6 +253,7 @@ extension CoolerBLEManager: CBPeripheralDelegate {
         case .power, .powerAlt: if let w = CoolerProtocol.parsePower(v) { powerW = w }
         case .powerMode: if let b = v.first { running = (b == 2) ; if b == 3 { mode = .idle } }
         case .fanMode: fanReadback = v.first.map(Int.init)
+        case .light: lastLightRaw = v.map { String(format: "%02X", $0) }.joined(separator: " ")
         case .autoTemp: if v.first == 1 { mode = .smart }
         case .boost: if v.first == 1 { mode = .boost }
         case .firmwareModule, .firmwareMain:

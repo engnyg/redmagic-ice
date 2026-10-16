@@ -84,6 +84,7 @@ struct MoreView: View {
     @EnvironmentObject var live: LiveActivityController
     @State private var showLog = false
     @State private var showLab = false
+    @State private var showProbe = false
     @State private var pickedPhoto: PhotosPickerItem?
     var body: some View {
         ScrollView {
@@ -108,6 +109,7 @@ struct MoreView: View {
                     FlowRow {
                         GlassChip(title: "通訊日誌", symbol: "doc.text") { showLog = true }
                         GlassChip(title: "超頻探測(實驗)", symbol: "flame") { showLab = true }
+                        GlassChip(title: "燈光命令探測(實驗)", symbol: "lightbulb.max") { showProbe = true }
                         if ble.connected {
                             GlassChip(title: "斷開連線", symbol: "bolt.slash.fill", selected: true, tint: .red) { ble.disconnect() }
                         } else {
@@ -129,6 +131,7 @@ struct MoreView: View {
             }
         }
         .sheet(isPresented: $showLab) { OverclockView() }
+        .sheet(isPresented: $showProbe) { LightProbeView() }
         .sheet(isPresented: $showLog) {
             NavigationStack {
                 List(Array(ble.log.reversed().enumerated()), id: \.offset) {
