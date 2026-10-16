@@ -54,9 +54,20 @@ struct LightSettings: Codable, Equatable {
 final class LightController: ObservableObject {
     enum Active: Equatable {
         case none, hardware(HardwareLight), software(SoftwareEffect), tempLinked, levelLinked, modeLinked
+
+        var storageKey: String {
+            switch self {
+            case .none: return "none"
+            case .hardware(let k): return "hw:\(k.rawValue)"
+            case .software(let e): return "sw:\(e.rawValue)"
+            case .tempLinked: return "temp"
+            case .levelLinked: return "level"
+            case .modeLinked: return "mode"
+            }
+        }
     }
 
-    @Published private(set) var active: Active = .none
+    @Published private(set) var active: Active = .none { didSet { UserDefaults.standard.set(active.storageKey, forKey: Self.activeKey) } }
     @Published var settings: LightSettings { didSet { save() } }
 
     private weak var ble: CoolerBLEManager?
@@ -65,6 +76,7 @@ final class LightController: ObservableObject {
     private var lastSignature = ""
     private var bag = Set<AnyCancellable>()
     private static let key = "lightSettings.v1"
+    private static let activeKey = "lightActive.v1"
 
     init() {
         if let d = UserDefaults.standard.data(forKey: Self.key),
@@ -87,6 +99,19 @@ final class LightController: ObservableObject {
             guard let self, self.active == .modeLinked else { return }
             self.applyModeLinked(mode, running)
         }.store(in: &bag)
+    }
+
+    /// 恢復上次使用的燈效(硬體模式 / 動態燈效 / 聯動)
+    func restoreActive() {
+        guard let key = UserDefaults.standard.string(forKey: Self.activeKey) else { return }
+        switch key {
+        case "temp": startTempLinked()
+        case "level": startLevelLinked()
+        case "mode": startModeLinked()
+        default:
+            if key.hasPrefix("hw:"), let k = HardwareLight(rawValue: String(key.dropFirst(3))) { applyHardware(k) }
+            else if key.hasPrefix("sw:"), let e = SoftwareEffect(rawValue: String(key.dropFirst(3))) { start(e) }
+        }
     }
 
     // MARK: 入口

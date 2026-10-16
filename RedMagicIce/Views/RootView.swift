@@ -82,6 +82,7 @@ struct MoreView: View {
     @EnvironmentObject var ble: CoolerBLEManager
     @EnvironmentObject var appearance: AppearanceController
     @EnvironmentObject var live: LiveActivityController
+    @EnvironmentObject var memory: MemoryController
     @State private var showLog = false
     @State private var showLab = false
     @State private var showProbe = false
@@ -98,6 +99,21 @@ struct MoreView: View {
                          ? "連線後自動在動態島顯示溫度,長按展開可看轉速與功率。"
                          : "系統已關閉即時動態:請到 設定 → 冰環 → 即時動態 開啟。")
                         .font(.caption).foregroundStyle(.white.opacity(0.6))
+                }.foregroundStyle(.white).glassCard()
+                SectionTitle("記憶")
+                VStack(alignment: .leading, spacing: 10) {
+                    Toggle("記憶上次狀態", isOn: $memory.enabled)
+                    Toggle("連線後自動恢復模式與燈效", isOn: $memory.autoRestore).disabled(!memory.enabled)
+                    Text("上次模式:\(memory.lastMode?.title ?? "尚無")")
+                        .font(.footnote).foregroundStyle(.white.opacity(0.75))
+                    Text("在 App 內按電源開機時,會自動回到上次的模式。連線後只有在散熱器已經運轉、且沒有任何模式時才會補上,不會替你自動開機。")
+                        .font(.caption).foregroundStyle(.white.opacity(0.55))
+                    GlassGroup {
+                        FlowRow {
+                            GlassChip(title: "立即恢復", symbol: "arrow.counterclockwise") { memory.restoreAll() }
+                            GlassChip(title: "清除記憶", symbol: "trash") { memory.forget() }
+                        }
+                    }
                 }.foregroundStyle(.white).glassCard()
                 SectionTitle("裝置")
                 VStack(alignment: .leading, spacing: 8) {

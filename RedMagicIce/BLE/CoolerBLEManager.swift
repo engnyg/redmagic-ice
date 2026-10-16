@@ -65,9 +65,15 @@ final class CoolerBLEManager: NSObject, ObservableObject {
 
     func disconnect() { if let p = peripheral { central.cancelPeripheralConnection(p) } }
 
+    /// 使用者在 App 內開機後的回呼(用來恢復上次模式)
+    var onUserPowerOn: (() -> Void)?
+
     func setPower(_ on: Bool) {
         write(.powerMode, on ? CoolerProtocol.powerOn : CoolerProtocol.powerOff, on ? "散熱 ON" : "散熱 OFF")
         if !on { mode = .idle }
+        if on {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in self?.onUserPowerOn?() }
+        }
     }
 
     func setManual(level: Int) {
