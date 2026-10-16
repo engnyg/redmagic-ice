@@ -162,11 +162,10 @@ struct LightView: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack { Image(systemName: "sun.max.fill"); Slider(value: $light.settings.brightness, in: 0.05...1) }
             HStack {
-                Image(systemName: "tortoise.fill")
+                Image(systemName: "hare.fill")      // 左=快(帧间隔 0.6s)
                 Slider(value: $light.settings.speed, in: 0.6...2.0) { editing in if !editing { light.speedChanged() } }
-                Image(systemName: "hare.fill")
+                Image(systemName: "tortoise.fill")  // 右=慢(2s)
             }
-            .environment(\.layoutDirection, .rightToLeft)   // 右侧=快(间隔短)
             HStack {
                 Text("亮度对动态灯效、常亮/呼吸颜色生效;速度仅对动态灯效生效。")
                     .font(.caption).foregroundStyle(.white.opacity(0.6))
