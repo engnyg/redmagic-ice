@@ -1,0 +1,11 @@
+name: iOS build
+on: [push, workflow_dispatch]
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: brew install xcodegen && xcodegen generate
+      - run: >
+          xcodebuild test -scheme RedMagicIce -destination 'platform=iOS Simulator,name=iPhone 15'
+          CODE_SIGNING_ALLOWED=NO

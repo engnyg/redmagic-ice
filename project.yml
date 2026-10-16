@@ -1,0 +1,39 @@
+name: RedMagicIce
+options:
+  bundleIdPrefix: com.example
+  deploymentTarget:
+    iOS: "16.0"
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    MARKETING_VERSION: "1.0.0"
+    CURRENT_PROJECT_VERSION: "1"
+targets:
+  RedMagicIce:
+    type: application
+    platform: iOS
+    sources: [RedMagicIce]
+    info:
+      path: RedMagicIce/Info.plist
+      properties:
+        CFBundleDisplayName: 冰环
+        UILaunchScreen: {}
+        NSBluetoothAlwaysUsageDescription: 需要蓝牙来连接并控制红魔散热器。
+        UIBackgroundModes: [bluetooth-central]
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.redmagicice
+  RedMagicIceTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [Tests]
+    dependencies:
+      - target: RedMagicIce
+schemes:
+  RedMagicIce:
+    build:
+      targets:
+        RedMagicIce: all
+    test:
+      targets: [RedMagicIceTests]
