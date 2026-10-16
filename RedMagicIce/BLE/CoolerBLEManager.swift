@@ -24,6 +24,8 @@ final class CoolerBLEManager: NSObject, ObservableObject {
     @Published var mode: CoolerWorkMode = .idle
     @Published var firmware = ""
     @Published var log: [String] = []
+    @Published var lastWriteError: String?
+    @Published var fanReadback: Int?     // 1012 读回值(超频探测用)
 
     private var central: CBCentralManager!
     private var peripheral: CBPeripheral?
@@ -102,6 +104,20 @@ final class CoolerBLEManager: NSObject, ObservableObject {
             }
         }
         mode = .boost
+    }
+
+    /// 实验:向 1012 写入任意原始值(原版最高只写到 80)。
+    func setFanRaw(_ value: UInt8, boost: Bool) {
+        write(.autoTemp, CoolerProtocol.flag(false), "实验:智能 OFF")
+        write(.boost, CoolerProtocol.flag(boost), boost ? "实验:破坏神 ON" : "实验:破坏神 OFF")
+        if !running { write(.powerMode, CoolerProtocol.powerOn, "散热 ON") }
+        write(.fanMode, Data([value]), "实验:风扇原始值 \(value)")
+        mode = boost ? .boost : .manual(level: CoolerProtocol.fanLevelValues.count - 1)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in self?.readValue(.fanMode) }
+    }
+
+    func readValue(_ c: CoolerChar) {
+        if let p = peripheral, let ch = chars[c], ch.properties.contains(.read) { p.readValue(for: ch) }
     }
 
     func setLight(_ m: LightMode) { write(.light, CoolerProtocol.lightPayload(m), "灯光") }
@@ -230,6 +246,7 @@ extension CoolerBLEManager: CBPeripheralDelegate {
         case .fanSpeed, .fanSpeedAlt: if let r = CoolerProtocol.parseRpm(v) { rpm = r }
         case .power, .powerAlt: if let w = CoolerProtocol.parsePower(v) { powerW = w }
         case .powerMode: if let b = v.first { running = (b == 2) ; if b == 3 { mode = .idle } }
+        case .fanMode: fanReadback = v.first.map(Int.init)
         case .autoTemp: if v.first == 1 { mode = .smart }
         case .boost: if v.first == 1 { mode = .boost }
         case .firmwareModule, .firmwareMain:
@@ -239,7 +256,8 @@ extension CoolerBLEManager: CBPeripheralDelegate {
     }
 
     func peripheral(_ p: CBPeripheral, didWriteValueFor ch: CBCharacteristic, error: Error?) {
-        if let error { addLog("写入失败: \(error.localizedDescription)") }
+        if let error { addLog("写入失败: \(error.localizedDescription)"); lastWriteError = error.localizedDescription }
+        else { lastWriteError = nil }
         writing = false; pump()
     }
 }

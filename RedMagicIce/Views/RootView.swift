@@ -77,6 +77,7 @@ struct MoreView: View {
     @EnvironmentObject var appearance: AppearanceController
     @EnvironmentObject var live: LiveActivityController
     @State private var showLog = false
+    @State private var showLab = false
     @State private var pickedPhoto: PhotosPickerItem?
     var body: some View {
         ScrollView {
@@ -98,8 +99,9 @@ struct MoreView: View {
                         .font(.footnote).foregroundStyle(.white.opacity(0.65))
                 }.foregroundStyle(.white).glassCard()
                 GlassGroup {
-                    HStack {
+                    FlowRow {
                         GlassChip(title: "通信日志", symbol: "doc.text") { showLog = true }
+                        GlassChip(title: "超频探测(实验)", symbol: "flame") { showLab = true }
                         GlassChip(title: "断开连接", symbol: "bolt.slash.fill", selected: true, tint: .red) { ble.disconnect() }
                     }
                 }
@@ -115,6 +117,7 @@ struct MoreView: View {
                 await MainActor.run { pickedPhoto = nil }
             }
         }
+        .sheet(isPresented: $showLab) { OverclockView() }
         .sheet(isPresented: $showLog) {
             NavigationStack {
                 List(Array(ble.log.reversed().enumerated()), id: \.offset) {
