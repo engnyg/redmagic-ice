@@ -1,103 +1,104 @@
 import SwiftUI
 
+extension CoolerBLEManager {
+    /// 主题色:随工作模式变化
+    var accent: Color {
+        guard connected, running else { return .indigo }
+        switch mode {
+        case .boost: return .red
+        case .smart: return .green
+        case .manual: return .cyan
+        case .idle: return .blue
+        }
+    }
+}
+
 struct RootView: View {
     @EnvironmentObject var ble: CoolerBLEManager
+
     var body: some View {
-        NavigationView {
-            Group {
-                if ble.connected { ControlView() } else { ScanView() }
-            }
-            .navigationTitle("冰环")
-            .toolbar {
-                if ble.connected {
-                    ToolbarItem(placement: .navigationBarTrailing) {
-                        Button("断开") { ble.disconnect() }
-                    }
+        ZStack {
+            AuroraBackground(accent: ble.accent)
+            if ble.connected {
+                TabView {
+                    ControlView().tabItem { Label("控制", systemImage: "fanblades.fill") }
+                    LightView().tabItem { Label("灯光", systemImage: "lightbulb.led.fill") }
+                    MoreView().tabItem { Label("更多", systemImage: "ellipsis.circle") }
                 }
+            } else {
+                ScanView()
             }
         }
-        .navigationViewStyle(.stack)
     }
 }
 
 struct ScanView: View {
     @EnvironmentObject var ble: CoolerBLEManager
     var body: some View {
-        List {
-            Section {
+        ScrollView {
+            VStack(spacing: 18) {
+                Spacer(minLength: 60)
+                Image(systemName: "snowflake").font(.system(size: 64, weight: .light)).foregroundStyle(.white)
+                    .frame(width: 130, height: 130).glass(Circle())
+                Text("冰环").font(.system(size: 34, weight: .bold, design: .rounded)).foregroundStyle(.white)
                 if ble.state != .poweredOn {
-                    Text("请在系统设置中开启蓝牙并允许本 App 使用蓝牙").foregroundColor(.secondary)
+                    Text("请在系统设置中开启蓝牙并允许本 App 使用蓝牙")
+                        .font(.footnote).foregroundStyle(.white.opacity(0.7)).multilineTextAlignment(.center)
                 }
-                Button(ble.scanning ? "扫描中…" : "扫描散热器") { ble.startScan() }
+                GlassChip(title: ble.scanning ? "扫描中…" : "扫描散热器", symbol: "dot.radiowaves.left.and.right",
+                          selected: ble.scanning, tint: .cyan) { ble.startScan() }
                     .disabled(ble.state != .poweredOn || ble.scanning)
-            }
-            Section("发现的设备") {
-                ForEach(ble.discovered) { d in
-                    Button { ble.connect(d) } label: {
-                        HStack { Text(d.name); Spacer(); Text("\(d.rssi) dBm").foregroundColor(.secondary) }
+                GlassGroup {
+                    VStack(spacing: 10) {
+                        ForEach(ble.discovered) { d in
+                            Button { ble.connect(d) } label: {
+                                HStack {
+                                    Image(systemName: "fanblades")
+                                    Text(d.name).fontWeight(.semibold)
+                                    Spacer()
+                                    Text("\(d.rssi) dBm").foregroundStyle(.white.opacity(0.6)).font(.footnote)
+                                }
+                                .foregroundStyle(.white).padding(16)
+                            }
+                            .buttonStyle(.plain)
+                            .glass(RoundedRectangle(cornerRadius: 22, style: .continuous), interactive: true)
+                        }
                     }
                 }
             }
+            .padding(.horizontal, 16)
         }
     }
 }
 
-struct ControlView: View {
+struct MoreView: View {
     @EnvironmentObject var ble: CoolerBLEManager
-    @State private var level: Double = 0
     @State private var showLog = false
-
-    private var smartOn: Bool { if case .smart = ble.mode { return true }; return false }
-    private var boostOn: Bool { if case .boost = ble.mode { return true }; return false }
-
     var body: some View {
-        Form {
-            Section("状态 · \(ble.deviceName)") {
-                row("散热器温度", ble.temperatureC.map { String(format: "%.0f °C", $0) })
-                row("转速", ble.rpm.map { "\($0) RPM" })
-                row("功率", ble.powerW.map { "\($0) W" })
-                if !ble.firmware.isEmpty { row("固件", ble.firmware) }
-            }
-            Section("散热") {
-                Toggle("散热开关", isOn: Binding(get: { ble.running }, set: { ble.setPower($0) }))
-                Toggle("智能温控", isOn: Binding(get: { smartOn }, set: { ble.setSmart($0) }))
-                Toggle("破坏神", isOn: Binding(get: { boostOn }, set: { ble.setBoost($0) }))
-            }
-            Section("手动档位:\(Int(level) + 1) / \(CoolerProtocol.fanLevelValues.count)") {
-                Slider(value: $level, in: 0...Double(CoolerProtocol.fanLevelValues.count - 1), step: 1) { editing in
-                    if !editing { ble.setManual(level: Int(level)) }
-                }
-            }
-            Section("灯光") {
-                HStack {
-                    Button("炫彩") { ble.setLight(.colorful) }
-                    Button("呼吸") { ble.setLight(.breathFull) }
-                    Button("电池温度") { ble.setLight(.batteryTemp) }
-                    Button("关灯") { ble.setLight(.off) }
-                }.buttonStyle(.bordered)
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 5), spacing: 12) {
-                    ForEach(CoolerProtocol.lightPresets) { p in
-                        Circle().fill(Color(red: Double(p.r) / 255, green: Double(p.g) / 255, blue: Double(p.b) / 255))
-                            .frame(height: 36)
-                            .overlay(Circle().stroke(Color.gray.opacity(0.4)))
-                            .onTapGesture { ble.setLight(.solid(rgb: (p.r, p.g, p.b))) }
-                            .onLongPressGesture { ble.setLight(.breathMono(rgb: (p.r, p.g, p.b))) }
-                            .accessibilityLabel(p.name)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                SectionTitle("设备")
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(ble.deviceName).font(.headline)
+                    Text(ble.firmware.isEmpty ? "固件版本读取中…" : "固件 \(ble.firmware)")
+                        .font(.footnote).foregroundStyle(.white.opacity(0.65))
+                }.foregroundStyle(.white).glassCard()
+                GlassGroup {
+                    HStack {
+                        GlassChip(title: "通信日志", symbol: "doc.text") { showLog = true }
+                        GlassChip(title: "断开连接", symbol: "bolt.slash.fill", selected: true, tint: .red) { ble.disconnect() }
                     }
                 }
-                Text("点按=常亮,长按=单色呼吸").font(.footnote).foregroundColor(.secondary)
             }
-            Section { Button("通信日志") { showLog = true } }
+            .padding(.horizontal, 16).padding(.top, 8)
         }
         .sheet(isPresented: $showLog) {
-            NavigationView {
-                List(Array(ble.log.reversed().enumerated()), id: \.offset) { Text($0.element).font(.system(.caption, design: .monospaced)) }
-                    .navigationTitle("日志")
+            NavigationStack {
+                List(Array(ble.log.reversed().enumerated()), id: \.offset) {
+                    Text($0.element).font(.system(.caption, design: .monospaced))
+                }
+                .navigationTitle("日志").navigationBarTitleDisplayMode(.inline)
             }
         }
-    }
-
-    private func row(_ k: String, _ v: String?) -> some View {
-        HStack { Text(k); Spacer(); Text(v ?? "--").foregroundColor(.secondary) }
     }
 }

@@ -1,0 +1,214 @@
+import SwiftUI
+
+struct LightView: View {
+    @EnvironmentObject var ble: CoolerBLEManager
+    @EnvironmentObject var light: LightController
+    @State private var editing = false
+
+    private var active: LightController.Active { light.active }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                hardwareSection
+                softwareSection
+                linkSection
+                tuneSection
+            }
+            .padding(.horizontal, 16).padding(.top, 8).padding(.bottom, 24)
+        }
+    }
+
+    // MARK: 硬件灯效(设备内置,App 退出后仍然保持)
+    private var hardwareSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SectionTitle("设备内置灯效")
+            GlassGroup {
+                FlowRow {
+                    ForEach(HardwareLight.allCases) { k in
+                        GlassChip(title: k.title, symbol: k.symbol, selected: active == .hardware(k), tint: .orange) {
+                            light.applyHardware(k)
+                        }
+                    }
+                }
+            }
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Text("颜色").font(.headline)
+                    Spacer()
+                    ColorPicker("自定义", selection: rgbBinding($light.settings.solid), supportsOpacity: false)
+                        .labelsHidden()
+                }
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 5), spacing: 10) {
+                    ForEach(CoolerProtocol.lightPresets) { p in
+                        let c = RGB(r: p.r, g: p.g, b: p.b)
+                        Circle().fill(c.color).frame(height: 38)
+                            .overlay(Circle().stroke(Color.white.opacity(light.settings.solid == c ? 0.95 : 0.25), lineWidth: light.settings.solid == c ? 3 : 1))
+                            .onTapGesture { light.applyHardware(.solid, color: c) }
+                            .onLongPressGesture { light.applyHardware(.breathMono, color: c) }
+                            .accessibilityLabel(p.name)
+                    }
+                }
+                Text("点按=常亮,长按=单色呼吸。也可用右上角取色器选任意颜色。")
+                    .font(.caption).foregroundStyle(.white.opacity(0.6))
+            }
+            .foregroundStyle(.white).glassCard()
+        }
+    }
+
+    // MARK: 软件灯效(App 逐帧驱动)
+    private var softwareSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SectionTitle("动态灯效(App 驱动)")
+            GlassGroup {
+                FlowRow {
+                    ForEach(SoftwareEffect.allCases) { e in
+                        GlassChip(title: e.title, symbol: e.symbol, selected: active == .software(e), tint: .pink) {
+                            light.start(e)
+                        }
+                    }
+                }
+            }
+            if case .software(let e) = active, e.usesColorList || e.usesSolidColor {
+                VStack(alignment: .leading, spacing: 12) {
+                    if e.usesSolidColor {
+                        ColorPicker("主色", selection: rgbBinding($light.settings.solid), supportsOpacity: false)
+                    } else {
+                        colorListEditor
+                    }
+                }
+                .foregroundStyle(.white).glassCard()
+            }
+            Text("设备固件只有 6 种内置灯效;动态灯效由 App 每 0.6 秒以上发送一帧颜色模拟,需保持 App 在前台。")
+                .font(.caption).foregroundStyle(.white.opacity(0.55)).padding(.horizontal, 6)
+        }
+    }
+
+    private var colorListEditor: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("颜色序列").font(.headline)
+            ForEach(Array(light.settings.colors.enumerated()), id: \.offset) { i, _ in
+                HStack {
+                    ColorPicker("颜色 \(i + 1)", selection: rgbBinding($light.settings.colors[i]), supportsOpacity: false)
+                    if light.settings.colors.count > 1 {
+                        Button { light.settings.colors.remove(at: i) } label: {
+                            Image(systemName: "minus.circle.fill").foregroundStyle(.red.opacity(0.85))
+                        }.buttonStyle(.plain)
+                    }
+                }
+            }
+            if light.settings.colors.count < 8 {
+                GlassChip(title: "添加颜色", symbol: "plus") {
+                    light.settings.colors.append(.hsv(Double(light.settings.colors.count) * 47, 1, 1))
+                }
+            }
+        }
+    }
+
+    // MARK: 联动
+    private var linkSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SectionTitle("联动灯效")
+            GlassGroup {
+                FlowRow {
+                    GlassChip(title: "温度联动", symbol: "thermometer.sun.fill", selected: active == .tempLinked, tint: .orange) {
+                        light.startTempLinked()
+                    }
+                    GlassChip(title: "档位联动", symbol: "chart.bar.fill", selected: active == .levelLinked, tint: .blue) {
+                        light.startLevelLinked()
+                    }
+                    GlassChip(title: "模式联动", symbol: "link", selected: active == .modeLinked, tint: .green) {
+                        light.startModeLinked()
+                    }
+                }
+            }
+            if active == .modeLinked {
+                VStack(alignment: .leading, spacing: 14) {
+                    linkRow("手动 / 待机", $light.settings.linkManual)
+                    linkRow("智能温控", $light.settings.linkSmart)
+                    linkRow("破坏神", $light.settings.linkBoost)
+                    linkRow("散热关闭", $light.settings.linkOff)
+                }
+                .foregroundStyle(.white).glassCard()
+            } else {
+                Text("温度联动:按散热器温度 5 档变色(<34 青 / <38 绿 / <42 黄 / <45 橙 / 更高红);档位联动:档位越高越红。")
+                    .font(.caption).foregroundStyle(.white.opacity(0.55)).padding(.horizontal, 6)
+            }
+        }
+    }
+
+    private func linkRow(_ title: String, _ link: Binding<LinkedLight>) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text(title).font(.subheadline.weight(.semibold))
+                Spacer()
+                if link.wrappedValue.kind.usesColor {
+                    ColorPicker("", selection: rgbBinding(link.color), supportsOpacity: false).labelsHidden()
+                }
+            }
+            FlowRow {
+                ForEach(HardwareLight.allCases) { k in
+                    GlassChip(title: k.title, selected: link.wrappedValue.kind == k, tint: .green) {
+                        link.wrappedValue.kind = k
+                        light.startModeLinked()
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: 亮度 / 速度
+    private var tuneSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack { Image(systemName: "sun.max.fill"); Slider(value: $light.settings.brightness, in: 0.05...1) }
+            HStack {
+                Image(systemName: "tortoise.fill")
+                Slider(value: $light.settings.speed, in: 0.6...2.0) { editing in if !editing { light.speedChanged() } }
+                Image(systemName: "hare.fill")
+            }
+            .environment(\.layoutDirection, .rightToLeft)   // 右侧=快(间隔短)
+            HStack {
+                Text("亮度对动态灯效、常亮/呼吸颜色生效;速度仅对动态灯效生效。")
+                    .font(.caption).foregroundStyle(.white.opacity(0.6))
+                Spacer()
+                if active != .none { GlassChip(title: "停止", symbol: "stop.fill") { light.stop() } }
+            }
+        }
+        .foregroundStyle(.white).glassCard()
+    }
+}
+
+/// 简单的自动换行容器
+struct FlowRow<Content: View>: View {
+    @ViewBuilder var content: () -> Content
+    var body: some View {
+        if #available(iOS 16.0, *) {
+            FlowLayout(spacing: 10) { content() }
+        } else {
+            HStack { content() }
+        }
+    }
+}
+
+struct FlowLayout: Layout {
+    var spacing: CGFloat = 10
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        arrange(proposal.width ?? 320, subviews).size
+    }
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let r = arrange(bounds.width, subviews)
+        for (i, p) in r.points.enumerated() {
+            subviews[i].place(at: CGPoint(x: bounds.minX + p.x, y: bounds.minY + p.y), proposal: .unspecified)
+        }
+    }
+    private func arrange(_ width: CGFloat, _ subviews: Subviews) -> (points: [CGPoint], size: CGSize) {
+        var pts: [CGPoint] = [], x: CGFloat = 0, y: CGFloat = 0, rowH: CGFloat = 0, maxW: CGFloat = 0
+        for s in subviews {
+            let sz = s.sizeThatFits(.unspecified)
+            if x > 0 && x + sz.width > width { x = 0; y += rowH + spacing; rowH = 0 }
+            pts.append(CGPoint(x: x, y: y))
+            x += sz.width + spacing; rowH = max(rowH, sz.height); maxW = max(maxW, x - spacing)
+        }
+        return (pts, CGSize(width: maxW, height: y + rowH))
+    }
+}

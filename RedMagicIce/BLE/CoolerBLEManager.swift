@@ -1,7 +1,7 @@
 import Foundation
 import CoreBluetooth
 
-enum CoolerWorkMode { case idle, manual(level: Int), smart, boost }
+enum CoolerWorkMode: Equatable { case idle, manual(level: Int), smart, boost }
 
 struct DiscoveredCooler: Identifiable {
     let peripheral: CBPeripheral
@@ -98,6 +98,15 @@ final class CoolerBLEManager: NSObject, ObservableObject {
 
     func setLight(_ m: LightMode) { write(.light, CoolerProtocol.lightPayload(m), "灯光") }
 
+    /// 软件灯效逐帧发送:队列忙就丢帧(与原版一致,风扇/模式命令优先),不写日志避免刷屏。
+    @discardableResult
+    func sendLightFrame(_ rgb: RGB) -> Bool {
+        guard connected, chars[.light] != nil, !writing, queue.isEmpty else { return false }
+        queue.append((.light, CoolerProtocol.lightPayload(.solid(rgb: rgb.tuple)), "灯光帧"))
+        pump()
+        return true
+    }
+
     // MARK: 写队列(串行,with response)
     private func write(_ c: CoolerChar, _ data: Data, _ label: String) {
         queue.append((c, data, label))
@@ -109,7 +118,7 @@ final class CoolerBLEManager: NSObject, ObservableObject {
         let (c, data, label) = queue.removeFirst()
         guard let ch = chars[c] else { addLog("缺少特征 \(c.rawValue):\(label)"); pump(); return }
         writing = true
-        addLog("TX \(c.rawValue)=\(data.map { String(format: "%02X", $0) }.joined()) \(label)")
+        if label != "灯光帧" { addLog("TX \(c.rawValue)=\(data.map { String(format: "%02X", $0) }.joined()) \(label)") }
         p.writeValue(data, for: ch, type: .withResponse)
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { [weak self] in // 超时保护
             guard let self, self.writing else { return }

@@ -33,4 +33,17 @@ final class CoolerProtocolTests: XCTestCase {
         XCTAssertTrue(CoolerProtocol.isLikelyCoolerName("RM 8 Pro"))
         XCTAssertFalse(CoolerProtocol.isLikelyCoolerName("AirPods"))
     }
+
+    func testLightFrames() {
+        let red = RGB(r: 255, g: 0, b: 0), blue = RGB(r: 0, g: 0, b: 255)
+        XCTAssertEqual(LightFrames.frame(.colorCycle, index: 5, colors: [red, blue], solid: .white), blue)
+        XCTAssertEqual(LightFrames.frame(.gradient, index: 0, colors: [red, blue], solid: .white), red)
+        XCTAssertEqual(LightFrames.frame(.gradient, index: 5, colors: [red, blue], solid: .white), blue)
+        XCTAssertEqual(LightFrames.frame(.strobe, index: 1, colors: [], solid: red), .black)
+        XCTAssertEqual(LightFrames.frame(.rainbow, index: 0, colors: [], solid: .white), red)
+        XCTAssertEqual(LightFrames.tempBandColor(30), RGB(r: 55, g: 200, b: 187))
+        XCTAssertEqual(LightFrames.tempBandColor(50), red)
+        XCTAssertEqual(LightFrames.levelColor(level: 9, count: 10), red)
+        XCTAssertEqual(RGB.white.scaled(0.5), RGB(r: 128, g: 128, b: 128))
+    }
 }
