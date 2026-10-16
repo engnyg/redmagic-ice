@@ -90,6 +90,7 @@ struct MoreView: View {
     @State private var showLog = false
     @State private var showLab = false
     @State private var showProbe = false
+    @State private var showAbout = false
     @State private var pickedPhoto: PhotosPickerItem?
     var body: some View {
         ScrollView {
@@ -125,6 +126,21 @@ struct MoreView: View {
                     Text(ble.firmware.isEmpty ? "韌體版本讀取中…" : "韌體 \(ble.firmware)")
                         .font(.footnote).foregroundStyle(.white.opacity(0.65))
                 }.foregroundStyle(.white).glassCard()
+                SectionTitle("關於")
+                Button { showAbout = true } label: {
+                    HStack(spacing: 14) {
+                        Image("Logo").resizable().scaledToFit().frame(width: 44, height: 44)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("極凍 Cryo").font(.headline)
+                            Text("版本、安全提醒與聲明").font(.caption).foregroundStyle(.white.opacity(0.65))
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right").foregroundStyle(.white.opacity(0.5))
+                    }
+                    .foregroundStyle(.white).padding(14).frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.plain)
+                .glass(RoundedRectangle(cornerRadius: 24, style: .continuous), interactive: true)
                 GlassGroup {
                     FlowRow {
                         GlassChip(title: "通訊日誌", symbol: "doc.text") { showLog = true }
@@ -152,6 +168,7 @@ struct MoreView: View {
         }
         .sheet(isPresented: $showLab) { OverclockView() }
         .sheet(isPresented: $showProbe) { LightProbeView() }
+        .sheet(isPresented: $showAbout) { AboutView() }
         .sheet(isPresented: $showLog) {
             NavigationStack {
                 List(Array(ble.log.reversed().enumerated()), id: \.offset) {
