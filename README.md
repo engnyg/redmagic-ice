@@ -4,6 +4,8 @@
 
 SwiftUI + CoreBluetooth 製作的紅魔散熱器 iOS 控制 App。
 
+專案網址:https://github.com/engnyg/redmagic-ice
+
 ## 功能
 - 掃描/連線紅魔散熱器、自動重連上次裝置
 - 散熱開關、10 檔手動檔位、智慧溫控、破壞神

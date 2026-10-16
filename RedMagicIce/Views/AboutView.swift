@@ -6,6 +6,8 @@ struct AboutView: View {
     @Environment(\.openURL) private var openURL
     @Environment(\.dismiss) private var dismiss
 
+    static let projectURL = URL(string: "https://github.com/\(UpdateChecker.repo)")!
+
     private var version: String {
         let i = Bundle.main.infoDictionary
         let v = i?["CFBundleShortVersionString"] as? String ?? "1.0"
@@ -31,6 +33,20 @@ struct AboutView: View {
 
                     card("簡介") {
                         Text("用藍牙直接控制紅魔磁吸散熱背夾:散熱開關、1~10 檔手動檔位、智慧溫控、破壞神,以及三種自動溫控(自由變頻、電池溫控、目標溫度)。支援燈光、動態燈效、動態島即時動態與自訂背景。")
+                    }
+
+                    card("開源專案") {
+                        Text("原始碼、更新紀錄與問題回報都在 GitHub。")
+                        Text(Self.projectURL.absoluteString).font(.caption.monospaced()).foregroundStyle(.cyan)
+                        GlassGroup {
+                            FlowRow {
+                                GlassChip(title: "開啟 GitHub 專案", symbol: "chevron.left.forwardslash.chevron.right", selected: true, tint: .indigo) {
+                                    openURL(Self.projectURL)
+                                }
+                                GlassChip(title: "所有版本", symbol: "tag") { openURL(Self.projectURL.appendingPathComponent("releases")) }
+                                GlassChip(title: "回報問題", symbol: "exclamationmark.bubble") { openURL(Self.projectURL.appendingPathComponent("issues")) }
+                            }
+                        }
                     }
 
                     card("目前裝置") {
