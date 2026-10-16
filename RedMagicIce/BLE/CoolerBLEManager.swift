@@ -81,19 +81,27 @@ final class CoolerBLEManager: NSObject, ObservableObject {
         mode = on ? .smart : .idle
     }
 
+    /// 破坏神(超频,UUID 1017)。流程与原版 enqueuePureBoostSequence 一致:
+    /// 智能 OFF → 散热 ON → 最高档 → 1017=01,并在 1.3s / 2.1s 各确认一次。
     func setBoost(_ on: Bool) {
         write(.autoTemp, CoolerProtocol.flag(false), "智能 OFF")
-        if on {
-            if !running { write(.powerMode, CoolerProtocol.powerOn, "散热 ON") }
-            write(.fanMode, CoolerProtocol.fanLevel(index: CoolerProtocol.fanLevelValues.count - 1), "基准最高档")
+        guard on else {
+            write(.boost, CoolerProtocol.flag(false), "破坏神 OFF")
+            mode = .idle
+            return
         }
-        write(.boost, CoolerProtocol.flag(on), on ? "破坏神 ON" : "破坏神 OFF")
-        if on { // 原版会多次确认,这里补发一次
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) { [weak self] in
-                self?.write(.boost, CoolerProtocol.flag(true), "破坏神二次确认")
+        write(.powerMode, CoolerProtocol.powerOn, "确认散热 ON")
+        write(.fanMode, CoolerProtocol.fanLevel(index: CoolerProtocol.fanLevelValues.count - 1), "基准最高档")
+        write(.boost, CoolerProtocol.flag(true), "破坏神 ON")
+        for (delay, label) in [(1.3, "二次确认"), (2.1, "三次确认")] {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+                guard let self, case .boost = self.mode else { return }   // 期间被切换/关闭则不再补发
+                self.write(.autoTemp, CoolerProtocol.flag(false), "\(label):智能 OFF")
+                self.write(.powerMode, CoolerProtocol.powerOn, "\(label):散热 ON")
+                self.write(.boost, CoolerProtocol.flag(true), "破坏神\(label)")
             }
         }
-        mode = on ? .boost : .idle
+        mode = .boost
     }
 
     func setLight(_ m: LightMode) { write(.light, CoolerProtocol.lightPayload(m), "灯光") }
