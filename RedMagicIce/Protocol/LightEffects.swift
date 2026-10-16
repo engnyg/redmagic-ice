@@ -36,19 +36,19 @@ struct RGB: Equatable, Codable, Hashable {
     }
 }
 
-/// 由 App 逐帧发送「常亮颜色」模拟的灯效。设备固件只有 6 种内置模式,
-/// 原版 App 的「自定义炫彩」也是这样做的(最快 600ms 一帧)。
+/// 由 App 逐幀傳送「常亮顏色」模擬的燈效。裝置韌體只有 6 種內建模式,
+/// 原版 App 的「自定義炫彩」也是這樣做的(最快 600ms 一幀)。
 enum SoftwareEffect: String, CaseIterable, Identifiable, Codable {
     case rainbow, colorCycle, gradient, softBreath, strobe, police
     var id: String { rawValue }
     var title: String {
         switch self {
         case .rainbow: return "彩虹"
-        case .colorCycle: return "色彩循环"
-        case .gradient: return "渐变"
+        case .colorCycle: return "色彩迴圈"
+        case .gradient: return "漸變"
         case .softBreath: return "柔和呼吸"
-        case .strobe: return "频闪"
-        case .police: return "警灯"
+        case .strobe: return "頻閃"
+        case .police: return "警燈"
         }
     }
     var symbol: String {
@@ -61,9 +61,9 @@ enum SoftwareEffect: String, CaseIterable, Identifiable, Codable {
         case .police: return "light.beacon.max.fill"
         }
     }
-    /// 是否使用「颜色序列」
+    /// 是否使用「顏色序列」
     var usesColorList: Bool { self == .colorCycle || self == .gradient }
-    /// 是否使用单一主色
+    /// 是否使用單一主色
     var usesSolidColor: Bool { self == .softBreath || self == .strobe }
 }
 
@@ -81,7 +81,7 @@ enum LightFrames {
             return list[i % list.count]
         case .gradient:
             if list.count == 1 { return list[0] }
-            let seg = i / 5, step = i % 5            // 与原版一致:每段 5 帧插值
+            let seg = i / 5, step = i % 5            // 與原版一致:每段 5 幀插值
             return .lerp(list[seg % list.count], list[(seg + 1) % list.count], Double(step) / 5)
         case .softBreath:
             let phase = Double(i % 20) / 20
@@ -93,7 +93,7 @@ enum LightFrames {
         }
     }
 
-    /// 散热器温度 → 颜色(原版是手机电池温度 5 档:34 / 38 / 42 / 45 ℃)
+    /// 散熱器溫度 → 顏色(原版是手機電池溫度 5 檔:34 / 38 / 42 / 45 ℃)
     static func tempBandColor(_ t: Float) -> RGB {
         switch t {
         case ..<34: return RGB(r: 55, g: 200, b: 187)
@@ -104,7 +104,7 @@ enum LightFrames {
         }
     }
 
-    /// 档位 → 蓝(低)到红(高)
+    /// 檔位 → 藍(低)到紅(高)
     static func levelColor(level: Int, count: Int) -> RGB {
         let n = max(count - 1, 1)
         return .hsv(210 * (1 - Double(min(max(level, 0), n)) / Double(n)), 1, 1)

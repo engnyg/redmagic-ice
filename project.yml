@@ -18,9 +18,9 @@ targets:
     info:
       path: RedMagicIce/Info.plist
       properties:
-        CFBundleDisplayName: 冰环
+        CFBundleDisplayName: 冰環
         UILaunchScreen: {}
-        NSBluetoothAlwaysUsageDescription: 需要蓝牙来连接并控制红魔散热器。
+        NSBluetoothAlwaysUsageDescription: 需要藍牙來連線並控制紅魔散熱器。
         UIBackgroundModes: [bluetooth-central]
         NSSupportsLiveActivities: true
         NSSupportsLiveActivitiesFrequentUpdates: true
@@ -35,7 +35,7 @@ targets:
     info:
       path: RedMagicIceWidgets/Info.plist
       properties:
-        CFBundleDisplayName: 冰环
+        CFBundleDisplayName: 冰環
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
     settings:

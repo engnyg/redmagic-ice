@@ -7,9 +7,9 @@ struct AppearanceSettings: Codable, Equatable {
         var id: String { rawValue }
         var title: String {
             switch self {
-            case .aurora: return "极光"
-            case .solid: return "纯色"
-            case .gradient: return "渐变"
+            case .aurora: return "極光"
+            case .solid: return "純色"
+            case .gradient: return "漸變"
             case .photo: return "照片"
             }
         }
@@ -26,13 +26,14 @@ struct AppearanceSettings: Codable, Equatable {
     var color1 = RGB(r: 10, g: 12, b: 30)
     var color2 = RGB(r: 70, g: 40, b: 140)
     var blur: Double = 0      // 照片模糊(0...30)
-    var dim: Double = 0.25    // 压暗(0...0.7),保证白色文字可读
+    var dim: Double = 0.25    // 壓暗(0...0.7),保證白色文字可讀
 }
 
-/// 自定义背景:极光(随模式变色) / 纯色 / 渐变 / 相册照片。
+/// 自定義背景:極光(隨模式變色) / 純色 / 漸變 / 相簿照片。
 final class AppearanceController: ObservableObject {
     @Published var settings: AppearanceSettings { didSet { save() } }
     @Published private(set) var photo: UIImage?
+    @Published var message: String?
 
     private static let key = "appearance.v1"
     private static var photoURL: URL {
@@ -51,16 +52,21 @@ final class AppearanceController: ObservableObject {
         photo = UIImage(contentsOfFile: Self.photoURL.path)
     }
 
-    /// 缩放到长边 ≤1600 后保存,避免占用过多内存/空间。
+    /// 縮放到長邊 ≤1600 後儲存,避免佔用過多記憶體/空間。
     func setPhoto(data: Data) {
-        guard let img = UIImage(data: data) else { return }
+        guard let img = UIImage(data: data) else { message = "無法解析這張照片"; return }
         let scale = min(1, 1600 / max(img.size.width, img.size.height))
         let size = CGSize(width: img.size.width * scale, height: img.size.height * scale)
-        let resized = UIGraphicsImageRenderer(size: size).image { _ in img.draw(in: CGRect(origin: .zero, size: size)) }
-        guard let jpg = resized.jpegData(compressionQuality: 0.85) else { return }
-        try? jpg.write(to: Self.photoURL, options: .atomic)
+        let format = UIGraphicsImageRendererFormat.default()
+        format.scale = 1     // 以像素為單位縮放,避免 3x 螢幕倍率讓圖片變成 4800px
+        let resized = UIGraphicsImageRenderer(size: size, format: format).image { _ in
+            img.draw(in: CGRect(origin: .zero, size: size))
+        }
+        guard let jpg = resized.jpegData(compressionQuality: 0.85) else { message = "照片編碼失敗"; return }
+        do { try jpg.write(to: Self.photoURL, options: .atomic) } catch { message = "儲存失敗:\(error.localizedDescription)"; return }
         photo = resized
         settings.style = .photo
+        message = "已套用照片"
     }
 
     func removePhoto() {

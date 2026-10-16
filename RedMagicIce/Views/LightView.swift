@@ -19,10 +19,10 @@ struct LightView: View {
         }
     }
 
-    // MARK: 硬件灯效(设备内置,App 退出后仍然保持)
+    // MARK: 硬體燈效(裝置內建,App 退出後仍然保持)
     private var hardwareSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            SectionTitle("设备内置灯效")
+            SectionTitle("裝置內建燈效")
             GlassGroup {
                 FlowRow {
                     ForEach(HardwareLight.allCases) { k in
@@ -34,9 +34,9 @@ struct LightView: View {
             }
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
-                    Text("颜色").font(.headline)
+                    Text("顏色").font(.headline)
                     Spacer()
-                    ColorPicker("自定义", selection: rgbBinding($light.settings.solid), supportsOpacity: false)
+                    ColorPicker("自定義", selection: rgbBinding($light.settings.solid), supportsOpacity: false)
                         .labelsHidden()
                 }
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 5), spacing: 10) {
@@ -49,17 +49,17 @@ struct LightView: View {
                             .accessibilityLabel(p.name)
                     }
                 }
-                Text("点按=常亮,长按=单色呼吸。也可用右上角取色器选任意颜色。")
+                Text("點按=常亮,長按=單色呼吸。也可用右上角取色器選任意顏色。")
                     .font(.caption).foregroundStyle(.white.opacity(0.6))
             }
             .foregroundStyle(.white).glassCard()
         }
     }
 
-    // MARK: 软件灯效(App 逐帧驱动)
+    // MARK: 軟體燈效(App 逐幀驅動)
     private var softwareSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            SectionTitle("动态灯效(App 驱动)")
+            SectionTitle("動態燈效(App 驅動)")
             GlassGroup {
                 FlowRow {
                     ForEach(SoftwareEffect.allCases) { e in
@@ -79,17 +79,17 @@ struct LightView: View {
                 }
                 .foregroundStyle(.white).glassCard()
             }
-            Text("设备固件只有 6 种内置灯效;动态灯效由 App 每 0.6 秒以上发送一帧颜色模拟,需保持 App 在前台。")
+            Text("裝置韌體只有 6 種內建燈效;動態燈效由 App 每 0.6 秒以上傳送一幀顏色模擬,需保持 App 在前臺。")
                 .font(.caption).foregroundStyle(.white.opacity(0.55)).padding(.horizontal, 6)
         }
     }
 
     private var colorListEditor: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("颜色序列").font(.headline)
+            Text("顏色序列").font(.headline)
             ForEach(Array(light.settings.colors.enumerated()), id: \.offset) { i, _ in
                 HStack {
-                    ColorPicker("颜色 \(i + 1)", selection: rgbBinding($light.settings.colors[i]), supportsOpacity: false)
+                    ColorPicker("顏色 \(i + 1)", selection: rgbBinding($light.settings.colors[i]), supportsOpacity: false)
                     if light.settings.colors.count > 1 {
                         Button { light.settings.colors.remove(at: i) } label: {
                             Image(systemName: "minus.circle.fill").foregroundStyle(.red.opacity(0.85))
@@ -98,40 +98,40 @@ struct LightView: View {
                 }
             }
             if light.settings.colors.count < 8 {
-                GlassChip(title: "添加颜色", symbol: "plus") {
+                GlassChip(title: "新增顏色", symbol: "plus") {
                     light.settings.colors.append(.hsv(Double(light.settings.colors.count) * 47, 1, 1))
                 }
             }
         }
     }
 
-    // MARK: 联动
+    // MARK: 聯動
     private var linkSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            SectionTitle("联动灯效")
+            SectionTitle("聯動燈效")
             GlassGroup {
                 FlowRow {
-                    GlassChip(title: "温度联动", symbol: "thermometer.sun.fill", selected: active == .tempLinked, tint: .orange) {
+                    GlassChip(title: "溫度聯動", symbol: "thermometer.sun.fill", selected: active == .tempLinked, tint: .orange) {
                         light.startTempLinked()
                     }
-                    GlassChip(title: "档位联动", symbol: "chart.bar.fill", selected: active == .levelLinked, tint: .blue) {
+                    GlassChip(title: "檔位聯動", symbol: "chart.bar.fill", selected: active == .levelLinked, tint: .blue) {
                         light.startLevelLinked()
                     }
-                    GlassChip(title: "模式联动", symbol: "link", selected: active == .modeLinked, tint: .green) {
+                    GlassChip(title: "模式聯動", symbol: "link", selected: active == .modeLinked, tint: .green) {
                         light.startModeLinked()
                     }
                 }
             }
             if active == .modeLinked {
                 VStack(alignment: .leading, spacing: 14) {
-                    linkRow("手动 / 待机", $light.settings.linkManual)
-                    linkRow("智能温控", $light.settings.linkSmart)
-                    linkRow("破坏神", $light.settings.linkBoost)
-                    linkRow("散热关闭", $light.settings.linkOff)
+                    linkRow("手動 / 待機", $light.settings.linkManual)
+                    linkRow("智慧溫控", $light.settings.linkSmart)
+                    linkRow("破壞神", $light.settings.linkBoost)
+                    linkRow("散熱關閉", $light.settings.linkOff)
                 }
                 .foregroundStyle(.white).glassCard()
             } else {
-                Text("温度联动:按散热器温度 5 档变色(<34 青 / <38 绿 / <42 黄 / <45 橙 / 更高红);档位联动:档位越高越红。")
+                Text("溫度聯動:按散熱器溫度 5 檔變色(<34 青 / <38 綠 / <42 黃 / <45 橙 / 更高紅);檔位聯動:檔位越高越紅。")
                     .font(.caption).foregroundStyle(.white.opacity(0.55)).padding(.horizontal, 6)
             }
         }
@@ -162,12 +162,12 @@ struct LightView: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack { Image(systemName: "sun.max.fill"); Slider(value: $light.settings.brightness, in: 0.05...1) }
             HStack {
-                Image(systemName: "hare.fill")      // 左=快(帧间隔 0.6s)
+                Image(systemName: "hare.fill")      // 左=快(幀間隔 0.6s)
                 Slider(value: $light.settings.speed, in: 0.6...2.0) { editing in if !editing { light.speedChanged() } }
                 Image(systemName: "tortoise.fill")  // 右=慢(2s)
             }
             HStack {
-                Text("亮度对动态灯效、常亮/呼吸颜色生效;速度仅对动态灯效生效。")
+                Text("亮度對動態燈效、常亮/呼吸顏色生效;速度僅對動態燈效生效。")
                     .font(.caption).foregroundStyle(.white.opacity(0.6))
                 Spacer()
                 if active != .none { GlassChip(title: "停止", symbol: "stop.fill") { light.stop() } }
@@ -177,7 +177,7 @@ struct LightView: View {
     }
 }
 
-/// 简单的自动换行容器
+/// 簡單的自動換行容器
 struct FlowRow<Content: View>: View {
     @ViewBuilder var content: () -> Content
     var body: some View {

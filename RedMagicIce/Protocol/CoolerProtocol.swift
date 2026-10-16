@@ -1,21 +1,21 @@
 import Foundation
 
-/// 红魔散热器 BLE 协议(由 冰环 APK 2.8.91 逆向得出)。
-/// 所有特征均为 16 位 UUID(0000xxxx-0000-1000-8000-00805f9b34fb),写入使用 "with response"。
+/// 紅魔散熱器 BLE 協議(由 冰環 APK 2.8.91 逆向得出)。
+/// 所有特徵均為 16 位 UUID(0000xxxx-0000-1000-8000-00805f9b34fb),寫入使用 "with response"。
 enum CoolerChar: String, CaseIterable {
-    case powerMode = "1011"   // 散热开关: 02=开 03=关
-    case fanMode = "1012"     // 手动档位: 见 CoolerProtocol.fanLevelValues
-    case light = "1013"       // 灯光: [模式, R, G, B]
-    case temp = "1014"        // 散热器温度
-    case status = "1015"      // 状态包: [类型, 数据...]
+    case powerMode = "1011"   // 散熱開關: 02=開 03=關
+    case fanMode = "1012"     // 手動檔位: 見 CoolerProtocol.fanLevelValues
+    case light = "1013"       // 燈光: [模式, R, G, B]
+    case temp = "1014"        // 散熱器溫度
+    case status = "1015"      // 狀態包: [型別, 資料...]
     case logger = "1016"
-    case boost = "1017"       // 破坏神: 01/00
-    case autoTemp = "1018"    // 智能温控: 01/00
-    case fanSpeed = "1019"    // 转速(备用 101C)
-    case power = "101A"       // 功率(备用 101D)
+    case boost = "1017"       // 破壞神: 01/00
+    case autoTemp = "1018"    // 智慧溫控: 01/00
+    case fanSpeed = "1019"    // 轉速(備用 101C)
+    case power = "101A"       // 功率(備用 101D)
     case fanSpeedAlt = "101C"
     case powerAlt = "101D"
-    case protection = "101F"  // 保护阈值
+    case protection = "101F"  // 保護閾值
     case firmwareModule = "2A26"
     case firmwareMain = "2A28"
 }
@@ -34,7 +34,7 @@ struct StatusUpdate: Equatable {
     var temperatureC: Float?
     var rpm: Int?
     var powerW: Int?
-    /// true=运行, false=停机(1015=05 7F), nil=未知
+    /// true=執行, false=停機(1015=05 7F), nil=未知
     var running: Bool?
 }
 
@@ -42,17 +42,17 @@ enum CoolerProtocol {
     static let fanLevelValues: [UInt8] = [40, 44, 46, 52, 58, 64, 68, 72, 76, 80]
 
     static let lightPresets: [LightPreset] = [
-        .init(name: "红", r: 255, g: 0, b: 0), .init(name: "橙", r: 255, g: 117, b: 18),
-        .init(name: "黄", r: 255, g: 210, b: 26), .init(name: "绿", r: 71, g: 215, b: 122),
-        .init(name: "青", r: 55, g: 200, b: 187), .init(name: "蓝", r: 67, g: 135, b: 232),
+        .init(name: "紅", r: 255, g: 0, b: 0), .init(name: "橙", r: 255, g: 117, b: 18),
+        .init(name: "黃", r: 255, g: 210, b: 26), .init(name: "綠", r: 71, g: 215, b: 122),
+        .init(name: "青", r: 55, g: 200, b: 187), .init(name: "藍", r: 67, g: 135, b: 232),
         .init(name: "紫", r: 99, g: 101, b: 223), .init(name: "粉", r: 223, g: 74, b: 152),
-        .init(name: "玫", r: 243, g: 63, b: 103), .init(name: "洋红", r: 210, g: 68, b: 233),
-        .init(name: "紫蓝", r: 135, g: 91, b: 232), .init(name: "湖蓝", r: 39, g: 166, b: 217),
-        .init(name: "薄荷", r: 31, g: 184, b: 133), .init(name: "草绿", r: 124, g: 204, b: 22),
+        .init(name: "玫", r: 243, g: 63, b: 103), .init(name: "洋紅", r: 210, g: 68, b: 233),
+        .init(name: "紫藍", r: 135, g: 91, b: 232), .init(name: "湖藍", r: 39, g: 166, b: 217),
+        .init(name: "薄荷", r: 31, g: 184, b: 133), .init(name: "草綠", r: 124, g: 204, b: 22),
         .init(name: "白", r: 255, g: 255, b: 255),
     ]
 
-    // MARK: 命令编码
+    // MARK: 命令編碼
     static let powerOn = Data([0x02])
     static let powerOff = Data([0x03])
     static func flag(_ on: Bool) -> Data { Data([on ? 1 : 0]) }
@@ -78,7 +78,7 @@ enum CoolerProtocol {
         func ok(_ t: Float) -> Float? { (-40...80).contains(t) ? t : nil }
         if b.isEmpty { return nil }
         if b.count == 1 { return ok(Float(Int8(bitPattern: b[0]))) }
-        if b[0] == 4 { return ok(Float(Int8(bitPattern: b[1]))) }   // 官方 847 状态包
+        if b[0] == 4 { return ok(Float(Int8(bitPattern: b[1]))) }   // 官方 847 狀態包
         let be = Int(b[0]) << 8 | Int(b[1]), le = Int(b[1]) << 8 | Int(b[0])
         func kelvin(_ r: Int) -> Float? { (230...360).contains(r) ? Float(r) - 273.15 : nil }
         func signed(_ r: Int) -> Float? { let s = r >= 0x8000 ? r - 0x10000 : r; return (-400...800).contains(s) ? Float(s) : nil }
@@ -100,7 +100,7 @@ enum CoolerProtocol {
         return Int(b[0])
     }
 
-    /// 1015 状态包: 04=温度 05=运行状态 08=转速 09=功率
+    /// 1015 狀態包: 04=溫度 05=執行狀態 08=轉速 09=功率
     static func parseStatus(_ v: Data) -> StatusUpdate {
         let b = [UInt8](v)
         var u = StatusUpdate()
@@ -116,7 +116,7 @@ enum CoolerProtocol {
         return u
     }
 
-    /// 与 Android 端 isLikelyMagcoolerName 一致
+    /// 與 Android 端 isLikelyMagcoolerName 一致
     static func isLikelyCoolerName(_ name: String) -> Bool {
         let s = name.trimmingCharacters(in: .whitespaces).lowercased()
         guard !s.isEmpty else { return false }

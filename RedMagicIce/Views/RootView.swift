@@ -2,7 +2,7 @@ import SwiftUI
 import PhotosUI
 
 extension CoolerBLEManager {
-    /// 主题色:随工作模式变化
+    /// 主題色:隨工作模式變化
     var accent: Color {
         guard connected, running else { return .indigo }
         switch mode {
@@ -14,6 +14,11 @@ extension CoolerBLEManager {
     }
 }
 
+extension View {
+    /// TabView 的分頁容器可能遮住底層背景,所以每個分頁自己畫一次背景。
+    func appPage(_ accent: Color) -> some View { self.background(AppBackground(accent: accent)) }
+}
+
 struct RootView: View {
     @EnvironmentObject var ble: CoolerBLEManager
 
@@ -22,9 +27,9 @@ struct RootView: View {
             AppBackground(accent: ble.accent)
             if ble.connected || ble.offlinePreview {
                 TabView {
-                    ControlView().tabItem { Label("控制", systemImage: "fanblades.fill") }
-                    LightView().tabItem { Label("灯光", systemImage: "lightbulb.led.fill") }
-                    MoreView().tabItem { Label("更多", systemImage: "ellipsis.circle") }
+                    ControlView().appPage(ble.accent).tabItem { Label("控制", systemImage: "fanblades.fill") }
+                    LightView().appPage(ble.accent).tabItem { Label("燈光", systemImage: "lightbulb.led.fill") }
+                    MoreView().appPage(ble.accent).tabItem { Label("更多", systemImage: "ellipsis.circle") }
                 }
             } else {
                 ScanView()
@@ -41,15 +46,15 @@ struct ScanView: View {
                 Spacer(minLength: 60)
                 Image(systemName: "snowflake").font(.system(size: 64, weight: .light)).foregroundStyle(.white)
                     .frame(width: 130, height: 130).glass(Circle())
-                Text("冰环").font(.system(size: 34, weight: .bold, design: .rounded)).foregroundStyle(.white)
+                Text("冰環").font(.system(size: 34, weight: .bold, design: .rounded)).foregroundStyle(.white)
                 if ble.state != .poweredOn {
-                    Text("请在系统设置中开启蓝牙并允许本 App 使用蓝牙")
+                    Text("請在系統設定中開啟藍牙並允許本 App 使用藍牙")
                         .font(.footnote).foregroundStyle(.white.opacity(0.7)).multilineTextAlignment(.center)
                 }
-                GlassChip(title: ble.scanning ? "扫描中…" : "扫描散热器", symbol: "dot.radiowaves.left.and.right",
+                GlassChip(title: ble.scanning ? "掃描中…" : "掃描散熱器", symbol: "dot.radiowaves.left.and.right",
                           selected: ble.scanning, tint: .cyan) { ble.startScan() }
                     .disabled(ble.state != .poweredOn || ble.scanning)
-                GlassChip(title: "不连接,先看看界面", symbol: "eye") { ble.offlinePreview = true }
+                GlassChip(title: "不連線,先看看介面", symbol: "eye") { ble.offlinePreview = true }
                 GlassGroup {
                     VStack(spacing: 10) {
                         ForEach(ble.discovered) { d in
@@ -83,30 +88,30 @@ struct MoreView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
-                SectionTitle("外观")
+                SectionTitle("外觀")
                 appearanceCard
-                SectionTitle("灵动岛")
+                SectionTitle("動態島")
                 VStack(alignment: .leading, spacing: 8) {
-                    Toggle("灵动岛 / 锁屏实时活动", isOn: $live.enabled)
+                    Toggle("動態島 / 鎖屏即時動態", isOn: $live.enabled)
                     Text(live.systemAllowed
-                         ? "连接后自动在灵动岛显示温度,长按展开可看转速与功率。"
-                         : "系统已关闭实时活动:请到 设置 → 冰环 → 实时活动 开启。")
+                         ? "連線後自動在動態島顯示溫度,長按展開可看轉速與功率。"
+                         : "系統已關閉即時動態:請到 設定 → 冰環 → 即時動態 開啟。")
                         .font(.caption).foregroundStyle(.white.opacity(0.6))
                 }.foregroundStyle(.white).glassCard()
-                SectionTitle("设备")
+                SectionTitle("裝置")
                 VStack(alignment: .leading, spacing: 8) {
                     Text(ble.deviceName).font(.headline)
-                    Text(ble.firmware.isEmpty ? "固件版本读取中…" : "固件 \(ble.firmware)")
+                    Text(ble.firmware.isEmpty ? "韌體版本讀取中…" : "韌體 \(ble.firmware)")
                         .font(.footnote).foregroundStyle(.white.opacity(0.65))
                 }.foregroundStyle(.white).glassCard()
                 GlassGroup {
                     FlowRow {
-                        GlassChip(title: "通信日志", symbol: "doc.text") { showLog = true }
-                        GlassChip(title: "超频探测(实验)", symbol: "flame") { showLab = true }
+                        GlassChip(title: "通訊日誌", symbol: "doc.text") { showLog = true }
+                        GlassChip(title: "超頻探測(實驗)", symbol: "flame") { showLab = true }
                         if ble.connected {
-                            GlassChip(title: "断开连接", symbol: "bolt.slash.fill", selected: true, tint: .red) { ble.disconnect() }
+                            GlassChip(title: "斷開連線", symbol: "bolt.slash.fill", selected: true, tint: .red) { ble.disconnect() }
                         } else {
-                            GlassChip(title: "返回扫描", symbol: "dot.radiowaves.left.and.right", selected: true, tint: .cyan) { ble.offlinePreview = false }
+                            GlassChip(title: "返回掃描", symbol: "dot.radiowaves.left.and.right", selected: true, tint: .cyan) { ble.offlinePreview = false }
                         }
                     }
                 }
@@ -116,10 +121,11 @@ struct MoreView: View {
         .onChange(of: pickedPhoto) { item in
             guard let item else { return }
             Task {
-                if let data = try? await item.loadTransferable(type: Data.self) {
-                    await MainActor.run { appearance.setPhoto(data: data) }
+                let data = try? await item.loadTransferable(type: Data.self)
+                await MainActor.run {
+                    if let data { appearance.setPhoto(data: data) } else { appearance.message = "無法讀取這張照片,請換一張" }
+                    pickedPhoto = nil
                 }
-                await MainActor.run { pickedPhoto = nil }
             }
         }
         .sheet(isPresented: $showLab) { OverclockView() }
@@ -128,7 +134,7 @@ struct MoreView: View {
                 List(Array(ble.log.reversed().enumerated()), id: \.offset) {
                     Text($0.element).font(.system(.caption, design: .monospaced))
                 }
-                .navigationTitle("日志").navigationBarTitleDisplayMode(.inline)
+                .navigationTitle("日誌").navigationBarTitleDisplayMode(.inline)
             }
         }
     }
@@ -142,7 +148,7 @@ extension MoreView {
                 FlowRow {
                     ForEach(AppearanceSettings.Style.allCases) { st in
                         GlassChip(title: st.title, symbol: st.symbol, selected: appearance.settings.style == st, tint: .purple) {
-                            if st == .photo && appearance.photo == nil { return }   // 先选照片
+                            if st == .photo && appearance.photo == nil { return }   // 先選照片
                             appearance.settings.style = st
                         }
                     }
@@ -150,12 +156,12 @@ extension MoreView {
             }
             switch appearance.settings.style {
             case .aurora:
-                Text("极光背景会随工作模式变色。").font(.caption).foregroundStyle(.white.opacity(0.6))
+                Text("極光背景會隨工作模式變色。").font(.caption).foregroundStyle(.white.opacity(0.6))
             case .solid:
-                ColorPicker("背景颜色", selection: rgbBinding($appearance.settings.color1), supportsOpacity: false)
+                ColorPicker("背景顏色", selection: rgbBinding($appearance.settings.color1), supportsOpacity: false)
             case .gradient:
-                ColorPicker("起始颜色", selection: rgbBinding($appearance.settings.color1), supportsOpacity: false)
-                ColorPicker("结束颜色", selection: rgbBinding($appearance.settings.color2), supportsOpacity: false)
+                ColorPicker("起始顏色", selection: rgbBinding($appearance.settings.color1), supportsOpacity: false)
+                ColorPicker("結束顏色", selection: rgbBinding($appearance.settings.color2), supportsOpacity: false)
             case .photo:
                 HStack { Image(systemName: "drop"); Slider(value: $appearance.settings.blur, in: 0...30) }
             }
@@ -164,15 +170,16 @@ extension MoreView {
             }
             HStack {
                 PhotosPicker(selection: $pickedPhoto, matching: .images) {
-                    Label(appearance.photo == nil ? "选择照片" : "更换照片", systemImage: "photo.on.rectangle")
+                    Label(appearance.photo == nil ? "選擇照片" : "更換照片", systemImage: "photo.on.rectangle")
                         .font(.subheadline.weight(.semibold)).foregroundStyle(.white)
                         .padding(.horizontal, 14).padding(.vertical, 10)
                 }
                 .glass(Capsule(), interactive: true)
                 if appearance.photo != nil {
-                    GlassChip(title: "删除照片", symbol: "trash") { appearance.removePhoto() }
+                    GlassChip(title: "刪除照片", symbol: "trash") { appearance.removePhoto() }
                 }
             }
+            if let m = appearance.message { Text(m).font(.caption).foregroundStyle(.yellow.opacity(0.9)) }
         }
         .foregroundStyle(.white).glassCard()
     }

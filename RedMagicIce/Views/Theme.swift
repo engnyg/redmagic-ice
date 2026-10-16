@@ -1,7 +1,7 @@
 import SwiftUI
 import UIKit
 
-// MARK: - 液态玻璃(iOS 26+ 用 glassEffect,低版本/旧 Xcode 自动降级为毛玻璃)
+// MARK: - 液態玻璃(iOS 26+ 用 glassEffect,低版本/舊 Xcode 自動降級為毛玻璃)
 
 extension View {
     @ViewBuilder
@@ -31,7 +31,7 @@ extension View {
     }
 }
 
-/// 让相邻的玻璃元素互相融合(iOS 26),低版本直接透传。
+/// 讓相鄰的玻璃元素互相融合(iOS 26),低版本直接透傳。
 struct GlassGroup<Content: View>: View {
     var spacing: CGFloat = 12
     @ViewBuilder var content: () -> Content
@@ -68,7 +68,7 @@ struct AuroraBackground: View {
     }
 }
 
-// MARK: - 通用控件
+// MARK: - 通用控制元件
 
 struct GlassChip: View {
     let title: String

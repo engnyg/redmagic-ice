@@ -19,16 +19,16 @@ struct OverclockView: View {
         }
         .preferredColorScheme(.dark)
         .onAppear { lab.attach(ble) }
-        .onDisappear { if lab.value > OverclockLab.stockMax || lab.sweeping { lab.restore() } }  // 离开时回到安全值
+        .onDisappear { if lab.value > OverclockLab.stockMax || lab.sweeping { lab.restore() } }  // 離開時回到安全值
     }
 
     private var warning: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Label("超频探测(实验)", systemImage: "exclamationmark.triangle.fill")
+            Label("超頻探測(實驗)", systemImage: "exclamationmark.triangle.fill")
                 .font(.headline).foregroundStyle(.yellow)
-            Text("原版 App 风扇档位最高只写到 80(第 10 档),从未写过更高的值。固件可能忽略、限幅、拒绝,也可能让风扇过载、噪音增大、缩短寿命或触发保护关机。结果完全未经验证,风险自负。")
+            Text("原版 App 風扇檔位最高只寫到 80(第 10 檔),從未寫過更高的值。韌體可能忽略、限幅、拒絕,也可能讓風扇過載、噪音增大、縮短壽命或觸發保護關機。結果完全未經驗證,風險自負。")
                 .font(.footnote).foregroundStyle(.white.opacity(0.85))
-            Toggle("我了解风险,继续", isOn: $accepted).tint(.red)
+            Toggle("我瞭解風險,繼續", isOn: $accepted).tint(.red)
         }
         .foregroundStyle(.white).glassCard(tint: .red)
     }
@@ -36,7 +36,7 @@ struct OverclockView: View {
     private var controls: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
-                Text("风扇原始值").font(.headline)
+                Text("風扇原始值").font(.headline)
                 Spacer()
                 Text("\(lab.value)").font(.system(size: 34, weight: .semibold, design: .rounded)).monospacedDigit()
                     .foregroundStyle(lab.value > OverclockLab.stockMax ? .red : .white)
@@ -48,28 +48,28 @@ struct OverclockView: View {
                 FlowRow {
                     GlassChip(title: "−5", symbol: nil) { lab.value = max(lab.value - 5, 40) }
                     GlassChip(title: "+5", symbol: nil) { lab.value = min(lab.value + 5, 255) }
-                    GlassChip(title: "写入", symbol: "arrow.up.circle.fill", selected: true, tint: .red) { lab.apply(lab.value) }
-                    GlassChip(title: "恢复第 10 档", symbol: "arrow.uturn.backward") { lab.restore() }
+                    GlassChip(title: "寫入", symbol: "arrow.up.circle.fill", selected: true, tint: .red) { lab.apply(lab.value) }
+                    GlassChip(title: "恢復第 10 檔", symbol: "arrow.uturn.backward") { lab.restore() }
                 }
             }
             .disabled(lab.sweeping)
-            Toggle("同时开启破坏神(1017)", isOn: $lab.withBoost).disabled(lab.sweeping)
+            Toggle("同時開啟破壞神(1017)", isOn: $lab.withBoost).disabled(lab.sweeping)
             GlassGroup {
                 HStack {
                     if lab.sweeping {
-                        GlassChip(title: "停止探测", symbol: "stop.fill", selected: true, tint: .red) { lab.stopSweep() }
+                        GlassChip(title: "停止探測", symbol: "stop.fill", selected: true, tint: .red) { lab.stopSweep() }
                     } else {
-                        GlassChip(title: "自动探测", symbol: "wand.and.stars", selected: true, tint: .orange) { lab.startSweep() }
+                        GlassChip(title: "自動探測", symbol: "wand.and.stars", selected: true, tint: .orange) { lab.startSweep() }
                     }
                 }
             }
             HStack {
-                Text("当前:\(ble.rpm.map(String.init) ?? "--") RPM · \(ble.powerW.map(String.init) ?? "--") W · \(ble.temperatureC.map { String(format: "%.0f°C", $0) } ?? "--")")
+                Text("當前:\(ble.rpm.map(String.init) ?? "--") RPM · \(ble.powerW.map(String.init) ?? "--") W · \(ble.temperatureC.map { String(format: "%.0f°C", $0) } ?? "--")")
                 Spacer()
             }
             .font(.footnote).foregroundStyle(.white.opacity(0.75))
             if !lab.status.isEmpty { Text(lab.status).font(.footnote).foregroundStyle(.yellow.opacity(0.9)) }
-            Text("自动探测:从 80 起每 4 档写入一次,每次等 5 秒读转速;出现写入报错、断线,或转速连续两档不再上升就停止,并自动恢复第 10 档。离开本页也会自动恢复。")
+            Text("自動探測:從 80 起每 4 檔寫入一次,每次等 5 秒讀轉速;出現寫入報錯、斷線,或轉速連續兩檔不再上升就停止,並自動恢復第 10 檔。離開本頁也會自動恢復。")
                 .font(.caption).foregroundStyle(.white.opacity(0.55))
         }
         .foregroundStyle(.white).glassCard()
@@ -77,15 +77,15 @@ struct OverclockView: View {
 
     private var results: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("探测记录").font(.headline)
+            Text("探測記錄").font(.headline)
             if lab.samples.isEmpty {
-                Text("还没有记录").font(.footnote).foregroundStyle(.white.opacity(0.6))
+                Text("還沒有記錄").font(.footnote).foregroundStyle(.white.opacity(0.6))
             } else {
                 HStack {
-                    Text("写入值").frame(width: 56, alignment: .leading)
-                    Text("转速").frame(width: 78, alignment: .leading)
+                    Text("寫入值").frame(width: 56, alignment: .leading)
+                    Text("轉速").frame(width: 78, alignment: .leading)
                     Text("功率").frame(width: 48, alignment: .leading)
-                    Text("读回").frame(maxWidth: .infinity, alignment: .leading)
+                    Text("讀回").frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .font(.caption).foregroundStyle(.white.opacity(0.6))
                 ForEach(lab.samples) { s in

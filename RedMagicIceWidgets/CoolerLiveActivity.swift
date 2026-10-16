@@ -25,11 +25,11 @@ struct CoolerLiveActivity: Widget {
                 }
                 DynamicIslandExpandedRegion(.bottom) {
                     HStack {
-                        stat("转速", s.rpm.map { "\($0) RPM" })
+                        stat("轉速", s.rpm.map { "\($0) RPM" })
                         Spacer()
                         stat("功率", s.powerW.map { "\($0) W" })
                         Spacer()
-                        stat("设备", context.attributes.deviceName)
+                        stat("裝置", context.attributes.deviceName)
                     }
                     .padding(.top, 4)
                 }

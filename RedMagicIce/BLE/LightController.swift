@@ -8,9 +8,9 @@ enum HardwareLight: String, Codable, CaseIterable, Identifiable {
         switch self {
         case .colorful: return "炫彩"
         case .breathFull: return "多色呼吸"
-        case .breathMono: return "单色呼吸"
+        case .breathMono: return "單色呼吸"
         case .solid: return "常亮"
-        case .off: return "关灯"
+        case .off: return "關燈"
         }
     }
     var symbol: String {
@@ -40,8 +40,8 @@ struct LinkedLight: Codable, Equatable {
 }
 
 struct LightSettings: Codable, Equatable {
-    var speed: Double = 1.0            // 软件灯效帧间隔(秒),最小 0.6
-    var brightness: Double = 1.0       // 软件亮度(缩放 RGB,硬件无亮度命令)
+    var speed: Double = 1.0            // 軟體燈效幀間隔(秒),最小 0.6
+    var brightness: Double = 1.0       // 軟體亮度(縮放 RGB,硬體無亮度命令)
     var solid = RGB(r: 67, g: 135, b: 232)
     var colors = LightFrames.defaultColors
     var linkManual = LinkedLight(kind: .solid, color: RGB(r: 55, g: 200, b: 187))
@@ -50,7 +50,7 @@ struct LightSettings: Codable, Equatable {
     var linkOff = LinkedLight(kind: .off, color: .black)
 }
 
-/// 灯光控制:硬件模式、App 驱动的软件灯效、以及温度/档位/模式联动。
+/// 燈光控制:硬體模式、App 驅動的軟體燈效、以及溫度/檔位/模式聯動。
 final class LightController: ObservableObject {
     enum Active: Equatable {
         case none, hardware(HardwareLight), software(SoftwareEffect), tempLinked, levelLinked, modeLinked
@@ -108,7 +108,7 @@ final class LightController: ObservableObject {
     func stop() { stopEngine(); active = .none }
     func speedChanged() { if case .software = active { restartTimer() } }
 
-    // MARK: 内部
+    // MARK: 內部
     private func begin(_ a: Active) {
         stopEngine()
         frame = 0

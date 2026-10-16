@@ -2,8 +2,8 @@ import Foundation
 import Combine
 import ActivityKit
 
-/// 灵动岛 / 锁屏实时活动:连接后自动开启,随温度、转速、功率、模式更新,断开后结束。
-/// BLE 已声明 bluetooth-central 后台模式,App 退到后台仍可收到通知并更新。
+/// 動態島 / 鎖屏即時動態:連線後自動開啟,隨溫度、轉速、功率、模式更新,斷開後結束。
+/// BLE 已宣告 bluetooth-central 背景模式,App 退到背景仍可收到通知並更新。
 final class LiveActivityController: ObservableObject {
     @Published var enabled: Bool {
         didSet {
@@ -26,7 +26,7 @@ final class LiveActivityController: ObservableObject {
     func attach(_ ble: CoolerBLEManager) {
         guard self.ble == nil else { return }
         self.ble = ble
-        activity = Activity<CoolerActivityAttributes>.activities.first   // App 重启后接管旧活动
+        activity = Activity<CoolerActivityAttributes>.activities.first   // App 重啟後接管舊活動
         ble.objectWillChange
             .debounce(for: .seconds(1), scheduler: DispatchQueue.main)
             .sink { [weak self] _ in self?.sync() }
@@ -63,7 +63,7 @@ final class LiveActivityController: ObservableObject {
                     content: ActivityContent(state: state, staleDate: nil), pushType: nil)
                 lastState = state
             } catch {
-                ble.noteLog("灵动岛启动失败: \(error.localizedDescription)")
+                ble.noteLog("動態島啟動失敗: \(error.localizedDescription)")
             }
         }
     }

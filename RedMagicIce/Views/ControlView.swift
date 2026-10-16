@@ -13,7 +13,7 @@ struct ControlView: View {
         ScrollView {
             VStack(spacing: 16) {
                 if !ble.connected {
-                    Label("预览模式:未连接散热器,操作不会发送", systemImage: "eye")
+                    Label("預覽模式:未連線散熱器,操作不會傳送", systemImage: "eye")
                         .font(.footnote.weight(.semibold)).foregroundStyle(.white)
                         .frame(maxWidth: .infinity).padding(10)
                         .glass(Capsule(), tint: .orange)
@@ -37,7 +37,7 @@ struct ControlView: View {
             }
             .buttonStyle(.plain)
             .glass(Circle(), tint: ble.running ? ble.accent : nil, interactive: true)
-            Text(ble.running ? "运行中" : "已关闭").font(.headline).foregroundStyle(.white)
+            Text(ble.running ? "執行中" : "已關閉").font(.headline).foregroundStyle(.white)
         }
         .frame(maxWidth: .infinity).padding(.vertical, 8)
     }
@@ -45,8 +45,8 @@ struct ControlView: View {
     private var stats: some View {
         GlassGroup {
             HStack(spacing: 12) {
-                tile("温度", ble.temperatureC.map { String(format: "%.0f", $0) }, "°C", "thermometer.medium")
-                tile("转速", ble.rpm.map(String.init), "RPM", "fanblades")
+                tile("溫度", ble.temperatureC.map { String(format: "%.0f", $0) }, "°C", "thermometer.medium")
+                tile("轉速", ble.rpm.map(String.init), "RPM", "fanblades")
                 tile("功率", ble.powerW.map(String.init), "W", "bolt.fill")
             }
         }
@@ -69,11 +69,11 @@ struct ControlView: View {
             SectionTitle("模式")
             GlassGroup {
                 HStack(spacing: 10) {
-                    GlassChip(title: "手动", symbol: "slider.horizontal.3", selected: manualOn, tint: .cyan) {
+                    GlassChip(title: "手動", symbol: "slider.horizontal.3", selected: manualOn, tint: .cyan) {
                         ble.setManual(level: levelIndex)
                     }
-                    GlassChip(title: "智能温控", symbol: "brain", selected: smartOn, tint: .green) { ble.setSmart(!smartOn) }
-                    GlassChip(title: "破坏神", symbol: "flame.fill", selected: boostOn, tint: .red) { ble.setBoost(!boostOn) }
+                    GlassChip(title: "智慧溫控", symbol: "brain", selected: smartOn, tint: .green) { ble.setSmart(!smartOn) }
+                    GlassChip(title: "破壞神", symbol: "flame.fill", selected: boostOn, tint: .red) { ble.setBoost(!boostOn) }
                 }
             }
         }
@@ -82,7 +82,7 @@ struct ControlView: View {
     private var fanLevels: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("手动档位").font(.headline)
+                Text("手動檔位").font(.headline)
                 Spacer()
                 Text("\(levelIndex + 1) / \(levelCount)").monospacedDigit().foregroundStyle(.white.opacity(0.7))
             }

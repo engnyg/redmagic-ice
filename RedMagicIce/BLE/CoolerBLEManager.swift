@@ -10,12 +10,12 @@ struct DiscoveredCooler: Identifiable {
     var id: UUID { peripheral.identifier }
 }
 
-/// CoreBluetooth 封装:扫描、连接、串行写入队列、订阅通知。
+/// CoreBluetooth 封裝:掃描、連線、序列寫入佇列、訂閱通知。
 final class CoolerBLEManager: NSObject, ObservableObject {
     @Published var state: CBManagerState = .unknown
     @Published var discovered: [DiscoveredCooler] = []
     @Published var connected = false
-    @Published var offlinePreview = false   // 未连接时先浏览界面(不会发送指令)
+    @Published var offlinePreview = false   // 未連線時先瀏覽介面(不會傳送指令)
     @Published var scanning = false
     @Published var deviceName = ""
     @Published var temperatureC: Float?
@@ -26,7 +26,7 @@ final class CoolerBLEManager: NSObject, ObservableObject {
     @Published var firmware = ""
     @Published var log: [String] = []
     @Published var lastWriteError: String?
-    @Published var fanReadback: Int?     // 1012 读回值(超频探测用)
+    @Published var fanReadback: Int?     // 1012 讀回值(超頻探測用)
 
     private var central: CBCentralManager!
     private var peripheral: CBPeripheral?
@@ -65,54 +65,54 @@ final class CoolerBLEManager: NSObject, ObservableObject {
     func disconnect() { if let p = peripheral { central.cancelPeripheralConnection(p) } }
 
     func setPower(_ on: Bool) {
-        write(.powerMode, on ? CoolerProtocol.powerOn : CoolerProtocol.powerOff, on ? "散热 ON" : "散热 OFF")
+        write(.powerMode, on ? CoolerProtocol.powerOn : CoolerProtocol.powerOff, on ? "散熱 ON" : "散熱 OFF")
         if !on { mode = .idle }
     }
 
     func setManual(level: Int) {
-        write(.autoTemp, CoolerProtocol.flag(false), "智能 OFF")
-        write(.boost, CoolerProtocol.flag(false), "破坏神 OFF")
-        if !running { write(.powerMode, CoolerProtocol.powerOn, "散热 ON") }
-        write(.fanMode, CoolerProtocol.fanLevel(index: level), "手动 \(level + 1) 档")
+        write(.autoTemp, CoolerProtocol.flag(false), "智慧 OFF")
+        write(.boost, CoolerProtocol.flag(false), "破壞神 OFF")
+        if !running { write(.powerMode, CoolerProtocol.powerOn, "散熱 ON") }
+        write(.fanMode, CoolerProtocol.fanLevel(index: level), "手動 \(level + 1) 檔")
         mode = .manual(level: level)
     }
 
     func setSmart(_ on: Bool) {
-        write(.boost, CoolerProtocol.flag(false), "破坏神 OFF")
-        if on && !running { write(.powerMode, CoolerProtocol.powerOn, "散热 ON") }
-        write(.autoTemp, CoolerProtocol.flag(on), on ? "智能温控 ON" : "智能温控 OFF")
+        write(.boost, CoolerProtocol.flag(false), "破壞神 OFF")
+        if on && !running { write(.powerMode, CoolerProtocol.powerOn, "散熱 ON") }
+        write(.autoTemp, CoolerProtocol.flag(on), on ? "智慧溫控 ON" : "智慧溫控 OFF")
         mode = on ? .smart : .idle
     }
 
-    /// 破坏神(超频,UUID 1017)。流程与原版 enqueuePureBoostSequence 一致:
-    /// 智能 OFF → 散热 ON → 最高档 → 1017=01,并在 1.3s / 2.1s 各确认一次。
+    /// 破壞神(超頻,UUID 1017)。流程與原版 enqueuePureBoostSequence 一致:
+    /// 智慧 OFF → 散熱 ON → 最高檔 → 1017=01,並在 1.3s / 2.1s 各確認一次。
     func setBoost(_ on: Bool) {
-        write(.autoTemp, CoolerProtocol.flag(false), "智能 OFF")
+        write(.autoTemp, CoolerProtocol.flag(false), "智慧 OFF")
         guard on else {
-            write(.boost, CoolerProtocol.flag(false), "破坏神 OFF")
+            write(.boost, CoolerProtocol.flag(false), "破壞神 OFF")
             mode = .idle
             return
         }
-        write(.powerMode, CoolerProtocol.powerOn, "确认散热 ON")
-        write(.fanMode, CoolerProtocol.fanLevel(index: CoolerProtocol.fanLevelValues.count - 1), "基准最高档")
-        write(.boost, CoolerProtocol.flag(true), "破坏神 ON")
-        for (delay, label) in [(1.3, "二次确认"), (2.1, "三次确认")] {
+        write(.powerMode, CoolerProtocol.powerOn, "確認散熱 ON")
+        write(.fanMode, CoolerProtocol.fanLevel(index: CoolerProtocol.fanLevelValues.count - 1), "基準最高檔")
+        write(.boost, CoolerProtocol.flag(true), "破壞神 ON")
+        for (delay, label) in [(1.3, "二次確認"), (2.1, "三次確認")] {
             DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
-                guard let self, case .boost = self.mode else { return }   // 期间被切换/关闭则不再补发
-                self.write(.autoTemp, CoolerProtocol.flag(false), "\(label):智能 OFF")
-                self.write(.powerMode, CoolerProtocol.powerOn, "\(label):散热 ON")
-                self.write(.boost, CoolerProtocol.flag(true), "破坏神\(label)")
+                guard let self, case .boost = self.mode else { return }   // 期間被切換/關閉則不再補發
+                self.write(.autoTemp, CoolerProtocol.flag(false), "\(label):智慧 OFF")
+                self.write(.powerMode, CoolerProtocol.powerOn, "\(label):散熱 ON")
+                self.write(.boost, CoolerProtocol.flag(true), "破壞神\(label)")
             }
         }
         mode = .boost
     }
 
-    /// 实验:向 1012 写入任意原始值(原版最高只写到 80)。
+    /// 實驗:向 1012 寫入任意原始值(原版最高只寫到 80)。
     func setFanRaw(_ value: UInt8, boost: Bool) {
-        write(.autoTemp, CoolerProtocol.flag(false), "实验:智能 OFF")
-        write(.boost, CoolerProtocol.flag(boost), boost ? "实验:破坏神 ON" : "实验:破坏神 OFF")
-        if !running { write(.powerMode, CoolerProtocol.powerOn, "散热 ON") }
-        write(.fanMode, Data([value]), "实验:风扇原始值 \(value)")
+        write(.autoTemp, CoolerProtocol.flag(false), "實驗:智慧 OFF")
+        write(.boost, CoolerProtocol.flag(boost), boost ? "實驗:破壞神 ON" : "實驗:破壞神 OFF")
+        if !running { write(.powerMode, CoolerProtocol.powerOn, "散熱 ON") }
+        write(.fanMode, Data([value]), "實驗:風扇原始值 \(value)")
         mode = boost ? .boost : .manual(level: CoolerProtocol.fanLevelValues.count - 1)
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in self?.readValue(.fanMode) }
     }
@@ -121,18 +121,18 @@ final class CoolerBLEManager: NSObject, ObservableObject {
         if let p = peripheral, let ch = chars[c], ch.properties.contains(.read) { p.readValue(for: ch) }
     }
 
-    func setLight(_ m: LightMode) { write(.light, CoolerProtocol.lightPayload(m), "灯光") }
+    func setLight(_ m: LightMode) { write(.light, CoolerProtocol.lightPayload(m), "燈光") }
 
-    /// 软件灯效逐帧发送:队列忙就丢帧(与原版一致,风扇/模式命令优先),不写日志避免刷屏。
+    /// 軟體燈效逐幀傳送:佇列忙就丟幀(與原版一致,風扇/模式命令優先),不寫日誌避免刷屏。
     @discardableResult
     func sendLightFrame(_ rgb: RGB) -> Bool {
         guard connected, chars[.light] != nil, !writing, queue.isEmpty else { return false }
-        queue.append((.light, CoolerProtocol.lightPayload(.solid(rgb: rgb.tuple)), "灯光帧"))
+        queue.append((.light, CoolerProtocol.lightPayload(.solid(rgb: rgb.tuple)), "燈光幀"))
         pump()
         return true
     }
 
-    // MARK: 写队列(串行,with response)
+    // MARK: 寫佇列(序列,with response)
     private func write(_ c: CoolerChar, _ data: Data, _ label: String) {
         queue.append((c, data, label))
         pump()
@@ -141,11 +141,11 @@ final class CoolerBLEManager: NSObject, ObservableObject {
     private func pump() {
         guard !writing, let p = peripheral, !queue.isEmpty else { return }
         let (c, data, label) = queue.removeFirst()
-        guard let ch = chars[c] else { addLog("缺少特征 \(c.rawValue):\(label)"); pump(); return }
+        guard let ch = chars[c] else { addLog("缺少特徵 \(c.rawValue):\(label)"); pump(); return }
         writing = true
-        if label != "灯光帧" { addLog("TX \(c.rawValue)=\(data.map { String(format: "%02X", $0) }.joined()) \(label)") }
+        if label != "燈光幀" { addLog("TX \(c.rawValue)=\(data.map { String(format: "%02X", $0) }.joined()) \(label)") }
         p.writeValue(data, for: ch, type: .withResponse)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { [weak self] in // 超时保护
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { [weak self] in // 超時保護
             guard let self, self.writing else { return }
             self.writing = false; self.pump()
         }
@@ -170,7 +170,7 @@ extension CoolerBLEManager: CBCentralManagerDelegate {
         if c.state == .poweredOn, let s = UserDefaults.standard.string(forKey: lastKey), let id = UUID(uuidString: s),
            let p = c.retrievePeripherals(withIdentifiers: [id]).first, peripheral == nil {
             peripheral = p; p.delegate = self; deviceName = p.name ?? deviceName
-            c.connect(p, options: nil)  // 自动重连上次设备
+            c.connect(p, options: nil)  // 自動重連上次裝置
         }
     }
 
@@ -185,16 +185,16 @@ extension CoolerBLEManager: CBCentralManagerDelegate {
         let svc = (advertisementData[CBAdvertisementDataServiceUUIDsKey] as? [CBUUID])?.map { $0.uuidString.uppercased() } ?? []
         let hit = CoolerProtocol.isLikelyCoolerName(name) || svc.contains { ["1011", "1015", "101C", "1019", "101A"].contains($0) }
         guard hit else { return }
-        let item = DiscoveredCooler(peripheral: p, name: name.isEmpty ? "未命名散热器" : name, rssi: RSSI.intValue)
+        let item = DiscoveredCooler(peripheral: p, name: name.isEmpty ? "未命名散熱器" : name, rssi: RSSI.intValue)
         if let i = discovered.firstIndex(where: { $0.id == item.id }) { discovered[i] = item } else { discovered.append(item) }
     }
 
     func centralManager(_ c: CBCentralManager, didConnect p: CBPeripheral) {
         p.discoverServices(nil)
-        // 与 Android 一致:服务发现 7 秒超时则重连
+        // 與 Android 一致:服務發現 7 秒超時則重連
         DispatchQueue.main.asyncAfter(deadline: .now() + 7) { [weak self] in
             guard let self, !self.connected, self.peripheral === p else { return }
-            self.addLog("服务发现超时,重连"); c.cancelPeripheralConnection(p); c.connect(p, options: nil)
+            self.addLog("服務發現超時,重連"); c.cancelPeripheralConnection(p); c.connect(p, options: nil)
         }
     }
 
@@ -204,7 +204,7 @@ extension CoolerBLEManager: CBCentralManagerDelegate {
     }
 
     func centralManager(_ c: CBCentralManager, didFailToConnect p: CBPeripheral, error: Error?) {
-        addLog("连接失败 \(error?.localizedDescription ?? "")"); c.connect(p, options: nil)
+        addLog("連線失敗 \(error?.localizedDescription ?? "")"); c.connect(p, options: nil)
     }
 }
 
@@ -216,7 +216,7 @@ extension CoolerBLEManager: CBPeripheralDelegate {
     func peripheral(_ p: CBPeripheral, didDiscoverCharacteristicsFor s: CBService, error: Error?) {
         for ch in s.characteristics ?? [] {
             guard let key = CoolerChar(rawValue: ch.uuid.uuidString.uppercased()) else { continue }
-            // 101C/101D 为 1019/101A 的备用,优先使用前者(与原版一致)
+            // 101C/101D 為 1019/101A 的備用,優先使用前者(與原版一致)
             switch key {
             case .fanSpeedAlt: chars[.fanSpeed] = ch
             case .powerAlt: chars[.power] = ch
@@ -230,7 +230,7 @@ extension CoolerBLEManager: CBPeripheralDelegate {
         if chars[.powerMode] != nil, chars[.status] != nil, !connected {
             connected = true
             offlinePreview = false
-            addLog("已连接并验证特征")
+            addLog("已連線並驗證特徵")
             startPolling()
         }
     }
@@ -258,7 +258,7 @@ extension CoolerBLEManager: CBPeripheralDelegate {
     }
 
     func peripheral(_ p: CBPeripheral, didWriteValueFor ch: CBCharacteristic, error: Error?) {
-        if let error { addLog("写入失败: \(error.localizedDescription)"); lastWriteError = error.localizedDescription }
+        if let error { addLog("寫入失敗: \(error.localizedDescription)"); lastWriteError = error.localizedDescription }
         else { lastWriteError = nil }
         writing = false; pump()
     }
