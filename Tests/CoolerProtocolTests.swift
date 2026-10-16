@@ -41,8 +41,10 @@ final class CoolerProtocolTests: XCTestCase {
         XCTAssertEqual(LightFrames.frame(.gradient, index: 5, colors: [red, blue], solid: .white), blue)
         XCTAssertEqual(LightFrames.frame(.strobe, index: 1, colors: [], solid: red), .black)
         XCTAssertEqual(LightFrames.frame(.rainbow, index: 0, colors: [], solid: .white), red)
-        XCTAssertEqual(LightFrames.tempBandColor(30), RGB(r: 55, g: 200, b: 187))
-        XCTAssertEqual(LightFrames.tempBandColor(50), red)
+        XCTAssertEqual(LightFrames.tempBandColor(30), red)                          // 偏熱
+        XCTAssertEqual(LightFrames.tempBandColor(12), RGB(r: 71, g: 215, b: 122))   // 綠
+        XCTAssertEqual(LightFrames.tempBandColor(3), RGB(r: 67, g: 135, b: 232))    // 藍
+        XCTAssertEqual(LightFrames.tempBandColor(-2), RGB(r: 190, g: 235, b: 255))  // 冰白
         XCTAssertEqual(LightFrames.levelColor(level: 9, count: 10), red)
         XCTAssertEqual(RGB.white.scaled(0.5), RGB(r: 128, g: 128, b: 128))
     }

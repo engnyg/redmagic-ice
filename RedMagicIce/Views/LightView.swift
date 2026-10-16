@@ -131,7 +131,7 @@ struct LightView: View {
                 }
                 .foregroundStyle(.white).glassCard()
             } else {
-                Text("溫度聯動:按散熱器溫度 5 檔變色(<34 青 / <38 綠 / <42 黃 / <45 橙 / 更高紅);檔位聯動:檔位越高越紅。")
+                Text("溫度聯動:依散熱器(製冷面)溫度變色,越冷越藍:0°C 以下冰白 / 0–5 藍 / 5–10 青 / 10–15 綠 / 15–20 黃 / 20–25 橙 / 25 以上紅。檔位聯動:檔位越高越紅。")
                     .font(.caption).foregroundStyle(.white.opacity(0.55)).padding(.horizontal, 6)
             }
         }

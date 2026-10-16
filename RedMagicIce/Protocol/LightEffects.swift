@@ -93,15 +93,19 @@ enum LightFrames {
         }
     }
 
-    /// 散熱器溫度 → 顏色(原版是手機電池溫度 5 檔:34 / 38 / 42 / 45 ℃)
+    /// 散熱器(背夾製冷面)溫度 → 顏色。製冷面通常在 0~30°C、越製冷越低,
+    /// 所以溫度越低越偏冰藍,散熱不足(偏熱)時轉紅;0°C 以下為冰白,提醒注意凝露。
+    static let tempBands: [(below: Float, color: RGB, name: String)] = [
+        (0, RGB(r: 190, g: 235, b: 255), "冰白"),
+        (5, RGB(r: 67, g: 135, b: 232), "藍"),
+        (10, RGB(r: 55, g: 200, b: 187), "青"),
+        (15, RGB(r: 71, g: 215, b: 122), "綠"),
+        (20, RGB(r: 255, g: 210, b: 26), "黃"),
+        (25, RGB(r: 255, g: 117, b: 18), "橙"),
+    ]
+
     static func tempBandColor(_ t: Float) -> RGB {
-        switch t {
-        case ..<34: return RGB(r: 55, g: 200, b: 187)
-        case ..<38: return RGB(r: 71, g: 215, b: 122)
-        case ..<42: return RGB(r: 255, g: 210, b: 26)
-        case ..<45: return RGB(r: 255, g: 117, b: 18)
-        default: return RGB(r: 255, g: 0, b: 0)
-        }
+        tempBands.first { t < $0.below }?.color ?? RGB(r: 255, g: 0, b: 0)   // 25°C 以上:紅
     }
 
     /// 檔位 → 藍(低)到紅(高)
