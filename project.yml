@@ -19,6 +19,8 @@ targets:
       path: RedMagicIce/Info.plist
       properties:
         CFBundleDisplayName: 極凍
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)   # CI 以 run number 覆寫,App 內更新提示靠它比對
         UILaunchScreen: {}
         NSBluetoothAlwaysUsageDescription: 需要藍牙來連線並控制紅魔散熱器。
         UIBackgroundModes: [bluetooth-central]
@@ -37,6 +39,8 @@ targets:
       path: RedMagicIceWidgets/Info.plist
       properties:
         CFBundleDisplayName: 極凍
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)   # CI 以 run number 覆寫,App 內更新提示靠它比對
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
     settings:
