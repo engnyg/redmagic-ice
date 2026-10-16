@@ -75,6 +75,7 @@ struct ScanView: View {
 struct MoreView: View {
     @EnvironmentObject var ble: CoolerBLEManager
     @EnvironmentObject var appearance: AppearanceController
+    @EnvironmentObject var live: LiveActivityController
     @State private var showLog = false
     @State private var pickedPhoto: PhotosPickerItem?
     var body: some View {
@@ -82,6 +83,14 @@ struct MoreView: View {
             VStack(alignment: .leading, spacing: 14) {
                 SectionTitle("外观")
                 appearanceCard
+                SectionTitle("灵动岛")
+                VStack(alignment: .leading, spacing: 8) {
+                    Toggle("灵动岛 / 锁屏实时活动", isOn: $live.enabled)
+                    Text(live.systemAllowed
+                         ? "连接后自动在灵动岛显示温度,长按展开可看转速与功率。"
+                         : "系统已关闭实时活动:请到 设置 → 冰环 → 实时活动 开启。")
+                        .font(.caption).foregroundStyle(.white.opacity(0.6))
+                }.foregroundStyle(.white).glassCard()
                 SectionTitle("设备")
                 VStack(alignment: .leading, spacing: 8) {
                     Text(ble.deviceName).font(.headline)

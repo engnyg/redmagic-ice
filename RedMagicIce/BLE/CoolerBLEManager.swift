@@ -134,6 +134,8 @@ final class CoolerBLEManager: NSObject, ObservableObject {
         }
     }
 
+    func noteLog(_ s: String) { addLog(s) }
+
     private func addLog(_ s: String) { log.append(s); if log.count > 200 { log.removeFirst(log.count - 200) } }
 
     private func startPolling() {
