@@ -216,7 +216,7 @@ extension CoolerBLEManager: CBCentralManagerDelegate {
     func centralManager(_ c: CBCentralManager, didDiscover p: CBPeripheral, advertisementData: [String: Any], rssi RSSI: NSNumber) {
         let name = (advertisementData[CBAdvertisementDataLocalNameKey] as? String) ?? p.name ?? ""
         let svc = (advertisementData[CBAdvertisementDataServiceUUIDsKey] as? [CBUUID])?.map { $0.uuidString.uppercased() } ?? []
-        let hit = CoolerProtocol.isLikelyCoolerName(name) || svc.contains { ["1011", "1015", "101C", "1019", "101A"].contains($0) }
+        let hit = CoolerProtocol.isLikelyCoolerName(name) || svc.contains { ["4A41", "1011", "1015", "101C", "1019", "101A"].contains($0) }
         guard hit else { return }
         let item = DiscoveredCooler(peripheral: p, name: name.isEmpty ? "未命名散熱器" : name, rssi: RSSI.intValue)
         if let i = discovered.firstIndex(where: { $0.id == item.id }) { discovered[i] = item } else { discovered.append(item) }

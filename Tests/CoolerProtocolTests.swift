@@ -8,13 +8,19 @@ final class CoolerProtocolTests: XCTestCase {
         XCTAssertEqual(CoolerProtocol.fanLevel(index: 0), Data([40]))
         XCTAssertEqual(CoolerProtocol.fanLevel(index: 99), Data([80]))
         XCTAssertEqual(CoolerProtocol.lightPayload(.solid(rgb: (1, 2, 3))), Data([4, 1, 2, 3]))
-        XCTAssertEqual(CoolerProtocol.lightPayload(.off), Data([5, 0, 0, 0]))
-        XCTAssertEqual(CoolerProtocol.lightPayload(.batteryTemp), Data([6, 0, 0, 0]))
+        XCTAssertEqual(CoolerProtocol.lightPayload(.off), Data([6, 0, 0, 0]))          // 官方抓包:06000000
+        XCTAssertEqual(CoolerProtocol.lightPayload(.colorful), Data([1, 0, 0, 0]))
+        XCTAssertEqual(CoolerProtocol.lightPayload(.breathFull), Data([2, 0, 0, 0]))
+        XCTAssertEqual(CoolerProtocol.lightPayload(.solid(rgb: (255, 0, 0))), Data([0x04, 0xFF, 0x00, 0x00]))
     }
 
     func testStatusPackets() {
-        XCTAssertEqual(CoolerProtocol.parseStatus(Data([4, 25])).temperatureC, 25)
+        // 官方抓包範例:04030000 → -3°C、04080000 → 2°C
+        XCTAssertEqual(CoolerProtocol.parseStatus(Data([4, 3, 0, 0])).temperatureC, -3)
+        XCTAssertEqual(CoolerProtocol.parseStatus(Data([4, 8, 0, 0])).temperatureC, 2)
+        XCTAssertEqual(CoolerProtocol.parseStatus(Data([4, 25])).temperatureC, 19)
         XCTAssertEqual(CoolerProtocol.parseStatus(Data([8, 0x0B, 0xB8])).rpm, 3000)
+        XCTAssertEqual(CoolerProtocol.parseStatus(Data([8, 0x13, 0xEC, 0])).rpm, 5100)     // 官方抓包 0813ec00
         XCTAssertEqual(CoolerProtocol.parseStatus(Data([9, 12])).powerW, 12)
         XCTAssertNil(CoolerProtocol.parseStatus(Data([9, 200])).powerW)
         XCTAssertEqual(CoolerProtocol.parseStatus(Data([5, 0x7F])).running, false)

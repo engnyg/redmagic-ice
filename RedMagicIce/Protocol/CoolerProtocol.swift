@@ -21,7 +21,7 @@ enum CoolerChar: String, CaseIterable {
 }
 
 enum LightMode {
-    case colorful, breathFull, breathMono(rgb: (UInt8, UInt8, UInt8)), solid(rgb: (UInt8, UInt8, UInt8)), off, batteryTemp
+    case colorful, breathFull, breathMono(rgb: (UInt8, UInt8, UInt8)), solid(rgb: (UInt8, UInt8, UInt8)), off
 }
 
 struct LightPreset: Identifiable {
@@ -67,8 +67,7 @@ enum CoolerProtocol {
         case .breathFull: return Data([2, 0, 0, 0])
         case .breathMono(let c): return Data([3, c.0, c.1, c.2])
         case .solid(let c): return Data([4, c.0, c.1, c.2])
-        case .off: return Data([5, 0, 0, 0])
-        case .batteryTemp: return Data([6, 0, 0, 0])
+        case .off: return Data([6, 0, 0, 0])      // 官方 App 抓包:關燈 = 06 00 00 00(05 為未知/保留,不要用)
         }
     }
 
@@ -84,6 +83,16 @@ enum CoolerProtocol {
         func signed(_ r: Int) -> Float? { let s = r >= 0x8000 ? r - 0x10000 : r; return (-400...800).contains(s) ? Float(s) : nil }
         let candidates: [Float?] = [kelvin(be), kelvin(le), signed(be), signed(le), Float(be), Float(le)]
         return candidates.compactMap { $0 }.first { (-40...80).contains($0) }
+    }
+
+    /// 1015 狀態包 `04 xx`:顯示溫度 = xx − 6 °C。
+    /// 官方 App 抓包(`04 03` → −3°C、`04 08` → 2°C)與冰環的 applyOfficialTempOffset 一致。
+    static let statusTempOffset: Float = 6
+    static func parseStatusTemp(_ v: Data) -> Float? {
+        let b = [UInt8](v)
+        guard b.count >= 2, b[0] == 4 else { return nil }
+        let t = Float(Int8(bitPattern: b[1])) - statusTempOffset
+        return (-40...80).contains(t) ? t : nil
     }
 
     static func parseRpm(_ v: Data) -> Int? {
@@ -106,7 +115,7 @@ enum CoolerProtocol {
         var u = StatusUpdate()
         guard let type = b.first else { return u }
         switch type {
-        case 4: u.temperatureC = parseTemp(v)
+        case 4: u.temperatureC = parseStatusTemp(v)
         case 5 where b.count >= 2:
             if b[1] == 0x7F { u.running = false } else if b[1] == 0x80 || b[1] == 0x00 { u.running = true }
         case 8: u.rpm = parseRpm(v)

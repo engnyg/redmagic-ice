@@ -3,7 +3,7 @@
 <img src="RedMagicIce/Assets.xcassets/AppIcon.appiconset/AppIcon.png" width="120" alt="極凍 Cryo 圖示">
 
 參考 Android「冰環」(`com.magcooler.binghuan.v2646` v2.8.91)的藍牙協議製作的 iOS App,SwiftUI + CoreBluetooth。
-協議由 APK 反編譯得到,詳見 [docs/PROTOCOL.md](docs/PROTOCOL.md)。
+協議由 APK 反編譯得到,並與官方 App 抓包([Maheidem/redmagic-cooler-ble](https://github.com/Maheidem/redmagic-cooler-ble))交叉驗證,詳見 [docs/PROTOCOL.md](docs/PROTOCOL.md)。
 
 ## 已移植
 - 掃描/連線紅魔散熱器、自動重連上次裝置
