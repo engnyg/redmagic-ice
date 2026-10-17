@@ -1,7 +1,7 @@
 import Foundation
 import CoreBluetooth
 
-/// Telink OTA 刷寫狀態機。流程與冰環 2.10.46 相同:訂閱通知 → 寫 `00 FF` → 逐包無回應寫入 → 結束包 → 等設備通知 `06 FF 00`。
+/// Telink OTA 刷寫狀態機。流程與冰環相同:訂閱通知 → 寫 `00 FF`、`01 FF` → 逐包無回應寫入 → 結束包 → 等設備通知 `06 FF 00`。
 /// 設備在收到合法結束包之前不會切換到新映像,所以傳輸中途失敗或中止時,通常會保留原本的固件。
 final class TelinkOTAController: ObservableObject {
     enum Phase: Equatable {
@@ -44,7 +44,7 @@ final class TelinkOTAController: ObservableObject {
         trace.removeAll(); progress = 0; endSent = false; waitingReady = false
         frames = TelinkOTA.frames(for: image)
         frameIndex = 0
-        log("開始:\(image.count) 位元組、\(frames.count - 2) 包資料,SHA-256 \(TelinkOTA.sha256Hex(image).prefix(16))…")
+        log("開始:\(image.count) 位元組、\(frames.count - TelinkOTA.startCommands.count - 1) 包資料,SHA-256 \(TelinkOTA.sha256Hex(image).prefix(16))…")
         set(.preparing, "凍結其他藍牙操作")
         ble.setOTAActive(true)
         hook(ble)
@@ -116,9 +116,11 @@ final class TelinkOTAController: ObservableObject {
         ctx.peripheral.writeValue(frames[frameIndex], for: ctx.characteristic, type: .withoutResponse)
         frameIndex += 1
         lastProgress = Date()
-        let dataCount = frames.count - 2
-        progress = Double(min(max(frameIndex - 1, 0), dataCount)) / Double(max(dataCount, 1))
-        detail = "傳輸中 \(Int(progress * 100))%(\(min(max(frameIndex - 1, 0), dataCount))/\(dataCount) 包)"
+        let header = TelinkOTA.startCommands.count
+        let dataCount = frames.count - header - 1
+        let sent = min(max(frameIndex - header, 0), dataCount)
+        progress = Double(sent) / Double(max(dataCount, 1))
+        detail = "傳輸中 \(Int(progress * 100))%(\(sent)/\(dataCount) 包)"
         if frameIndex == frames.count {
             endSent = true
             log("結束包已送出,等待設備確認")
@@ -126,7 +128,8 @@ final class TelinkOTAController: ObservableObject {
             armPhaseTimeout(20, nil, unconfirmed: "已送出全部資料,但沒有收到安裝確認;請重新連線並核對固件版本")
             return
         }
-        let delay = compatibilityPacing ? 0.012 : 0
+        // 開始命令之間要讓設備有時間處理(冰環是等寫入回呼才送下一個);其餘依相容節奏
+        let delay = frameIndex <= TelinkOTA.startCommands.count ? 0.15 : (compatibilityPacing ? 0.012 : 0)
         if delay == 0 { DispatchQueue.main.async { [weak self] in self?.pump() } }
         else { DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in self?.pump() } }
     }

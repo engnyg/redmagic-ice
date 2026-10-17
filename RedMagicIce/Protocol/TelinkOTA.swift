@@ -12,6 +12,10 @@ enum TelinkOTA {
     static let characteristicUUID = "00010203-0405-0607-0809-0A0B0C0D2B12"
     static let maxSize = 126_976
     static let startCommand = Data([0x00, 0xFF])
+    /// 標準 Telink 的 OTA_START。冰環 X 在 `00 FF` 之後一定會再寫 `01 FF` 才開始送資料;
+    /// 只送 `00 FF` 的話設備不會進入接收狀態(實測在約 1% 時被設備斷線)。
+    static let startCommand2 = Data([0x01, 0xFF])
+    static let startCommands = [startCommand, startCommand2]
 
     enum ImageError: LocalizedError {
         case badSize, noMagic, lengthMismatch, badCRC
@@ -92,9 +96,9 @@ enum TelinkOTA {
         return Data(p)
     }
 
-    /// 全部要依序寫入的封包:開始 + 資料 + 結束
+    /// 全部要依序寫入的封包:開始(2 個命令) + 資料 + 結束
     static func frames(for data: Data) -> [Data] {
         let n = packetCount(data)
-        return [startCommand] + (0..<n).map { packet(data, index: $0) } + [endPacket(lastIndex: n - 1)]
+        return startCommands + (0..<n).map { packet(data, index: $0) } + [endPacket(lastIndex: n - 1)]
     }
 }

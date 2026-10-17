@@ -192,8 +192,9 @@ final class CoolerProtocolTests: XCTestCase {
         XCTAssertEqual(TelinkOTA.startCommand, Data([0x00, 0xFF]))
 
         let frames = TelinkOTA.frames(for: Data(img))
-        XCTAssertEqual(frames.count, 65 + 2)                                         // 開始 + 65 包資料 + 結束
-        XCTAssertEqual(frames.first, Data([0x00, 0xFF]))
+        XCTAssertEqual(frames.count, 2 + 65 + 1)                                     // 兩個開始命令 + 65 包資料 + 結束
+        XCTAssertEqual(Array(frames.prefix(2)), [Data([0x00, 0xFF]), Data([0x01, 0xFF])])
+        XCTAssertEqual(frames[2][0], 0)                                              // 第一包資料,序號 0
         XCTAssertEqual(frames.last, TelinkOTA.endPacket(lastIndex: 64))
     }
 

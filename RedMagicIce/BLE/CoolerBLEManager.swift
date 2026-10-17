@@ -304,6 +304,7 @@ extension CoolerBLEManager: CBCentralManagerDelegate {
     }
 
     func centralManager(_ c: CBCentralManager, didDisconnectPeripheral p: CBPeripheral, error: Error?) {
+        if let e = error as NSError? { addLog("藍牙斷線:\(e.domain) \(e.code) \(e.localizedDescription)") } else { addLog("藍牙斷線(設備或系統主動結束連線)") }
         connected = false; chars.removeAll(); queue.removeAll(); writing = false; pollTimer?.invalidate()
         otaChar = nil; otaAvailable = false
         onOTADisconnect?()
