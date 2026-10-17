@@ -56,27 +56,60 @@ final class CoolerProtocolTests: XCTestCase {
     }
 
     func testAutoCurve() {
-        let c = TempCurve.freeDefault
+        let c = TempCurve.freeDefault                       // 預設1:11 點
+        XCTAssertEqual(c.points.count, 11)
+        XCTAssertEqual(TempCurve.presetNames.count, 3)
+        XCTAssertEqual(TempCurve.factoryPresets.map { $0.points.count }, [11, 11, 11])
         XCTAssertEqual(c.level(at: -20), 1)
         XCTAssertEqual(c.level(at: 40), 10)
-        XCTAssertEqual(c.level(at: 2.5), 2.5, accuracy: 0.001)
+        XCTAssertEqual(c.level(at: 2.5), 3.5, accuracy: 0.001)   // (1,3)→(4,4) 之間
         XCTAssertEqual(AutoLogic.curveIndex(curve: c, temp: 25, current: nil), 9)
-        // 遲滯:目標 3.4 檔,目前 3 檔(差 0.4 < 0.55)保持不動
-        XCTAssertEqual(AutoLogic.curveIndex(curve: c, temp: 7, current: 2), 2)
+        // 遲滯:目標約 3.17 檔,目前 3 檔(差 < 0.55)保持不動
+        XCTAssertEqual(AutoLogic.curveIndex(curve: c, temp: 1.5, current: 2), 2)
+        // 官方電池曲線:33°C 起轉,42°C 以上滿檔
+        XCTAssertEqual(TempCurve.batteryDefault.level(at: 30), 1)
+        XCTAssertEqual(TempCurve.batteryDefault.level(at: 38), 5.5, accuracy: 0.001)
         XCTAssertEqual(AutoLogic.curveIndex(curve: .batteryDefault, temp: 50, current: nil), 9)
         XCTAssertEqual(AutoLogic.curveIndex(curve: .batteryDefault, temp: 30, current: nil), 0)
     }
 
-    func testTargetControl() {
-        XCTAssertEqual(AutoLogic.targetBaseIndex(diff: -3), 0)
-        XCTAssertEqual(AutoLogic.targetBaseIndex(diff: 1.5), 1)
-        XCTAssertEqual(AutoLogic.targetBaseIndex(diff: 5), 4)
-        XCTAssertEqual(AutoLogic.targetBaseIndex(diff: 12), 9)
-        XCTAssertEqual(AutoLogic.targetIndex(cooler: 24, target: 18, current: nil), 4)
-        // 升檔立即,降檔需多降 0.7℃
-        XCTAssertEqual(AutoLogic.targetIndex(cooler: 20.4, target: 18, current: 2), 2)   // diff 2.4:base=2,持平
-        XCTAssertEqual(AutoLogic.targetIndex(cooler: 19.5, target: 18, current: 2), 2)   // diff 1.5:base=1,但 down(2.2)=2,遲滯內保持
-        XCTAssertEqual(AutoLogic.targetIndex(cooler: 18.2, target: 18, current: 2), 0)   // diff 0.2:降到 0
-        XCTAssertEqual(AutoLogic.targetIndex(cooler: 26, target: 18, current: 2), 6)     // diff 8:立即升檔
+    func testThermalStabilizer() {
+        var s = ThermalStabilizer()
+        // 目標 18,剛好在目標:基本維持 2 檔(nominalHold = (20-18)/4+1 = 1.5)
+        var o = s.decideCoolerTarget(measured: 18, target: 18, maxLogicalLevel: 10, nowMs: 0)
+        XCTAssertEqual(o.reason, "initial"); XCTAssertEqual(o.level, 2)
+        // 溫度突升到 22:平滑後約 20.2°C,需求約 6 檔,與目前差 ≥4 檔 → 急升,但一次最多升 2 檔
+        o = s.decideCoolerTarget(measured: 22, target: 18, maxLogicalLevel: 10, nowMs: 3000)
+        XCTAssertEqual(o.reason, "urgent-up"); XCTAssertEqual(o.level, 4)
+        // 目標 ≤5°C 且超出 1°C:直接滿檔
+        var cold = ThermalStabilizer()
+        o = cold.decideCoolerTarget(measured: 4.5, target: 3, maxLogicalLevel: 10, nowMs: 0)
+        XCTAssertEqual(o.level, 10)
+        // 改變目標會重置狀態
+        o = s.decideCoolerTarget(measured: 18, target: 10, maxLogicalLevel: 10, nowMs: 6000)
+        XCTAssertEqual(o.reason, "initial")
+    }
+
+    func testAutoBoostGate() {
+        var g = AutoBoostGate()
+        XCTAssertEqual(g.resolve(requested: 11, boostEnabled: true, urgent: false, nowMs: 0), 10)      // 初始
+        XCTAssertEqual(g.resolve(requested: 11, boostEnabled: true, urgent: false, nowMs: 100), 10)    // 計時開始
+        XCTAssertEqual(g.resolve(requested: 11, boostEnabled: true, urgent: false, nowMs: 1800), 11)   // 持續 ≥1.6s → 破壞神
+        XCTAssertEqual(g.resolve(requested: 9, boostEnabled: true, urgent: false, nowMs: 2000), 11)    // 退出需持續 2.8s
+        XCTAssertEqual(g.resolve(requested: 9, boostEnabled: true, urgent: false, nowMs: 5000), 9)
+        var off = AutoBoostGate()
+        _ = off.resolve(requested: 11, boostEnabled: false, urgent: false, nowMs: 0)
+        XCTAssertEqual(off.resolve(requested: 11, boostEnabled: false, urgent: false, nowMs: 9000), 10) // 未啟用:永不超過 10
+    }
+
+    func testCoolerModel() {
+        XCTAssertEqual(CoolerModel.detect(name: "RM Magcooler 8pro"), .rm8Pro)
+        XCTAssertEqual(CoolerModel.detect(name: "RM Magcooler 6pro"), .rm6Pro)
+        XCTAssertEqual(CoolerModel.detect(name: "PA1246"), .rm6Pro)
+        XCTAssertEqual(CoolerModel.detect(name: "RM Magcooler 5pro"), .rm5Pro)
+        XCTAssertEqual(CoolerModel.detect(name: "AirPods"), .unknown)
+        XCTAssertTrue(CoolerModel.rm8Pro.supportsNewTelemetry)
+        XCTAssertFalse(CoolerModel.rm5Pro.supportsFirmwareAutoTemp)
+        XCTAssertTrue(CoolerProtocol.isLikelyCoolerName("PA1246"))
     }
 }

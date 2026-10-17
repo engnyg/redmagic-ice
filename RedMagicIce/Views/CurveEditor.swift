@@ -5,6 +5,7 @@ struct CurveEditor: View {
     @Binding var curve: TempCurve
     let range: ClosedRange<Double>
     var currentTemp: Double?
+    var maxLevel: Double = 10          // 11 時多一格「破壞神」
     @State private var active: Int?
 
     private let padL: CGFloat = 30, padR: CGFloat = 14, padT: CGFloat = 14, padB: CGFloat = 24
@@ -54,20 +55,22 @@ struct CurveEditor: View {
     private var readout: String {
         if let i = active, curve.points.indices.contains(i) {
             let p = curve.points[i]
-            return String(format: "第 %d 點:%.1f°C → %.1f 檔", i + 1, p.temp, p.level)
+            return String(format: "第 %d 點:%.1f°C → %@", i + 1, p.temp, p.level > 10 ? "破壞神" : String(format: "%.1f 檔", p.level))
         }
         return "拖曳圓點調整曲線(左右=溫度,上下=檔位)。黃色虛線為目前溫度。"
     }
 
+    private var gridLevels: [Int] { maxLevel >= 11 ? [1, 4, 7, 10, 11] : [1, 4, 7, 10] }
+
     private func grid(w: CGFloat, h: CGFloat) -> some View {
         ZStack(alignment: .topLeading) {
-            ForEach([1, 4, 7, 10], id: \.self) { lv in
+            ForEach(gridLevels, id: \.self) { lv in
                 Path { p in
                     p.move(to: CGPoint(x: padL, y: yPos(Double(lv), h)))
                     p.addLine(to: CGPoint(x: padL + w, y: yPos(Double(lv), h)))
                 }
                 .stroke(Color.white.opacity(0.12), lineWidth: 1)
-                Text("\(lv)").font(.caption2).foregroundStyle(.white.opacity(0.6))
+                Text(lv == 11 ? "破" : "\(lv)").font(.caption2).foregroundStyle(.white.opacity(lv == 11 ? 0.9 : 0.6))
                     .position(x: 12, y: yPos(Double(lv), h))
             }
             Text(String(format: "%.0f°", range.lowerBound)).font(.caption2).foregroundStyle(.white.opacity(0.6))
@@ -82,18 +85,18 @@ struct CurveEditor: View {
     }
 
     private func yPos(_ level: Double, _ h: CGFloat) -> CGFloat {
-        padT + h - CGFloat((level - 1) / 9) * h
+        padT + h - CGFloat((level - 1) / (maxLevel - 1)) * h
     }
 
     private func move(_ i: Int, to p: CGPoint, w: CGFloat, h: CGFloat) {
         var pts = curve.points
         guard pts.indices.contains(i) else { return }
         let tRaw = range.lowerBound + Double((p.x - padL) / w) * (range.upperBound - range.lowerBound)
-        let lRaw = 1 + Double((padT + h - p.y) / h) * 9
+        let lRaw = 1 + Double((padT + h - p.y) / h) * (maxLevel - 1)
         let lo = i > 0 ? pts[i - 1].temp + 0.5 : range.lowerBound
         let hi = max(lo, i < pts.count - 1 ? pts[i + 1].temp - 0.5 : range.upperBound)
         pts[i].temp = (min(max(tRaw, lo), hi) * 2).rounded() / 2
-        pts[i].level = (min(max(lRaw, 1), 10) * 2).rounded() / 2
+        pts[i].level = (min(max(lRaw, 1), maxLevel) * 2).rounded() / 2
         curve.points = pts
     }
 }

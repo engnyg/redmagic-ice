@@ -101,8 +101,8 @@ final class CoolerBLEManager: NSObject, ObservableObject {
 
     /// 破壞神(超頻,UUID 1017)。流程與原版 enqueuePureBoostSequence 一致:
     /// 智慧 OFF → 散熱 ON → 最高檔 → 1017=01,並在 1.3s / 2.1s 各確認一次。
-    func setBoost(_ on: Bool) {
-        onUserControl?()
+    func setBoost(_ on: Bool, fromAuto: Bool = false) {
+        if !fromAuto { onUserControl?() }
         write(.autoTemp, CoolerProtocol.flag(false), "智慧 OFF")
         guard on else {
             write(.boost, CoolerProtocol.flag(false), "破壞神 OFF")
@@ -182,6 +182,12 @@ final class CoolerBLEManager: NSObject, ObservableObject {
             guard let self, self.writing else { return }
             self.writing = false; self.pump()
         }
+    }
+
+    /// 顯示用機型名稱(未能辨識時退回藍牙廣播名)
+    var modelTitle: String {
+        let m = CoolerModel.detect(name: deviceName)
+        return m == .unknown ? (deviceName.isEmpty ? m.displayName : deviceName) : m.displayName
     }
 
     func noteLog(_ s: String) { addLog(s) }

@@ -50,7 +50,7 @@ struct AboutView: View {
                     }
 
                     card("目前裝置") {
-                        row("名稱", ble.connected ? ble.deviceName : "未連線")
+                        row("機型", ble.connected ? ble.modelTitle : "未連線")
                         row("韌體", ble.connected && !ble.firmware.isEmpty ? ble.firmware : "--")
                     }
 

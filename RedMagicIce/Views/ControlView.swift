@@ -3,8 +3,10 @@ import SwiftUI
 struct ControlView: View {
     @EnvironmentObject var ble: CoolerBLEManager
     @EnvironmentObject var auto: AutoController
+    @EnvironmentObject var shutdown: ShutdownTimerController
     @State private var levelIndex = 0
     @State private var showAuto = false
+    @State private var showTimerSheet = false
 
     private var smartOn: Bool { ble.mode == .smart }
     private var boostOn: Bool { ble.mode == .boost }
@@ -24,6 +26,7 @@ struct ControlView: View {
                 stats
                 modes
                 autoCard
+                timerCard
                 fanLevels
             }
             .padding(.horizontal, 16).padding(.top, 8)
@@ -33,7 +36,7 @@ struct ControlView: View {
 
     private var header: some View {
         VStack(spacing: 14) {
-            Text(ble.deviceName).font(.subheadline.weight(.medium)).foregroundStyle(.white.opacity(0.7))
+            Text(ble.modelTitle).font(.subheadline.weight(.medium)).foregroundStyle(.white.opacity(0.7))
             Button { ble.setPower(!ble.running) } label: {
                 Image(systemName: "power").font(.system(size: 44, weight: .semibold))
                     .foregroundStyle(.white).frame(width: 128, height: 128)
@@ -103,6 +106,39 @@ struct ControlView: View {
         .sheet(isPresented: $showAuto) { AutoControlView() }
     }
 
+    private var timerCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SectionTitle("定時關機")
+            VStack(alignment: .leading, spacing: 10) {
+                if let d = shutdown.deadline {
+                    HStack {
+                        Image(systemName: "timer").foregroundStyle(.orange)
+                        Text("剩餘").foregroundStyle(.white.opacity(0.7))
+                        Text(d, style: .timer).font(.title3.weight(.semibold).monospacedDigit())
+                        Spacer()
+                        GlassChip(title: "取消", symbol: "xmark") { shutdown.cancel() }
+                    }
+                } else {
+                    GlassGroup {
+                        FlowRow {
+                            ForEach([15, 30, 60, 120], id: \.self) { m in
+                                GlassChip(title: m >= 60 ? "\(m / 60) 小時" : "\(m) 分鐘", symbol: "timer") { shutdown.schedule(minutes: m) }
+                                    .disabled(!ble.connected)
+                            }
+                            GlassChip(title: "自訂", symbol: "slider.horizontal.3") { showTimerSheet = true }
+                                .disabled(!ble.connected)
+                        }
+                    }
+                }
+                if !shutdown.message.isEmpty { Text(shutdown.message).font(.footnote).foregroundStyle(.yellow.opacity(0.9)) }
+                Text("時間到會自動關閉散熱器。App 在前台或藍牙仍在背景運作時準時關閉;否則會發通知,重新開啟 App 後 10 分鐘內自動補關。")
+                    .font(.caption).foregroundStyle(.white.opacity(0.55))
+            }
+            .foregroundStyle(.white).glassCard()
+        }
+        .sheet(isPresented: $showTimerSheet) { ShutdownCustomSheet() }
+    }
+
     private var fanLevels: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
@@ -130,5 +166,33 @@ struct ControlView: View {
             .frame(height: 86)
         }
         .foregroundStyle(.white).glassCard()
+    }
+}
+
+struct ShutdownCustomSheet: View {
+    @EnvironmentObject var shutdown: ShutdownTimerController
+    @Environment(\.dismiss) private var dismiss
+    @State private var minutes = 30
+
+    var body: some View {
+        ZStack {
+            AppBackground(accent: .orange)
+            VStack(spacing: 18) {
+                Text("自訂定時關機").font(.headline)
+                Text(minutes >= 60 ? "\(minutes / 60) 小時 \(minutes % 60) 分鐘" : "\(minutes) 分鐘")
+                    .font(.system(size: 34, weight: .semibold, design: .rounded)).monospacedDigit()
+                Stepper("分鐘(1~1440)", value: $minutes, in: 1...1440, step: 5).padding(.horizontal, 24)
+                GlassGroup {
+                    HStack {
+                        GlassChip(title: "開始", symbol: "play.fill", selected: true, tint: .orange) { shutdown.schedule(minutes: minutes); dismiss() }
+                        GlassChip(title: "取消", symbol: "xmark") { dismiss() }
+                    }
+                }
+            }
+            .foregroundStyle(.white).padding(24)
+        }
+        .preferredColorScheme(.dark)
+        .presentationDetents([.medium])
+        .onAppear { minutes = shutdown.lastMinutes }
     }
 }

@@ -61,12 +61,33 @@ struct AutoControlView: View {
     private var freeCard: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("自由變頻").font(.headline)
-            Text("依散熱背夾(散熱器)溫度自動調整檔位。散熱器溫度越高代表手機負載越大,檔位就越高。可拖曳圓點自訂溫度與檔位曲線;目標檔位與目前檔位相差不到 0.55 時保持不動,避免頻繁切換。")
+            Text("依散熱背夾(散熱器)溫度自動調整檔位。散熱器溫度越高代表手機負載越大,檔位就越高。共 3 組預設曲線,每組 11 個點,可拖曳圓點自訂溫度與檔位;目標檔位與目前檔位相差不到 0.55 時保持不動,避免頻繁切換。")
                 .font(.footnote).foregroundStyle(.white.opacity(0.7))
-            CurveEditor(curve: $auto.settings.freeCurve, range: -10...40, currentTemp: ble.temperatureC.map(Double.init))
-            GlassChip(title: "恢復預設曲線", symbol: "arrow.counterclockwise") { auto.settings.freeCurve = .freeDefault }
+            GlassGroup {
+                FlowRow {
+                    ForEach(0..<3, id: \.self) { i in
+                        GlassChip(title: TempCurve.presetNames[i], selected: auto.settings.activePreset == i, tint: .mint) {
+                            auto.settings.activePreset = i
+                        }
+                    }
+                }
+            }
+            CurveEditor(curve: $auto.settings.activeFreeCurve, range: -30...40,
+                        currentTemp: ble.temperatureC.map(Double.init), maxLevel: auto.settings.allowAutoBoost ? 11 : 10)
+            GlassChip(title: "恢復此組預設曲線", symbol: "arrow.counterclockwise") {
+                auto.settings.activeFreeCurve = TempCurve.factoryPresets[auto.settings.activePreset]
+            }
+            boostToggle
         }
         .foregroundStyle(.white).glassCard()
+    }
+
+    private var boostToggle: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Toggle("必要時自動啟用破壞神", isOn: Binding(get: { auto.settings.allowAutoBoost }, set: { auto.settings.allowAutoBoost = $0 }))
+            Text("開啟後曲線可拉到第 11 檔(破壞神):需求超過 10.65 檔並持續 1.6 秒才進入,降到 10 檔以下並持續 2.8 秒才退出。破壞神發熱與噪音大,預設關閉。")
+                .font(.caption).foregroundStyle(.white.opacity(0.55))
+        }
     }
 
     // MARK: 電池溫控
@@ -98,8 +119,10 @@ struct AutoControlView: View {
                 Text("目前熱狀態:\(AutoLogic.thermalName(s))(估算 \(Int(AutoLogic.estimatedTemp(s)))°C)")
                     .font(.footnote.monospacedDigit()).foregroundStyle(.white.opacity(0.85))
             }
-            CurveEditor(curve: $auto.settings.batteryCurve, range: 25...55, currentTemp: auto.batteryTemp())
-            GlassChip(title: "恢復預設曲線", symbol: "arrow.counterclockwise") { auto.settings.batteryCurve = .batteryDefault }
+            CurveEditor(curve: $auto.settings.batteryCurve, range: 25...55, currentTemp: auto.batteryTemp(),
+                        maxLevel: auto.settings.allowAutoBoost ? 11 : 10)
+            GlassChip(title: "恢復官方曲線", symbol: "arrow.counterclockwise") { auto.settings.batteryCurve = .batteryDefault }
+            boostToggle
         }
         .foregroundStyle(.white).glassCard()
     }
@@ -108,7 +131,7 @@ struct AutoControlView: View {
     private var targetCard: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("目標溫度控制").font(.headline)
-            Text("設定散熱器目標溫度,App 會自動調整檔位,盡量把散熱器維持在目標附近:超過目標越多檔位越高,降回來時多降 0.7°C 才降檔,避免來回跳動。")
+            Text("設定散熱器目標溫度,App 會自動調整檔位,盡量把散熱器維持在目標附近。內建溫控穩定器:取最近 3 筆中位數再平滑,升檔最多一次 2 檔、降檔一次 1 檔,並有遲滯與最短停留時間,避免來回跳動;目標 5°C 以下且超出 1°C 時直接滿檔。")
                 .font(.footnote).foregroundStyle(.white.opacity(0.7))
             HStack {
                 Text("目標").foregroundStyle(.white.opacity(0.8))
@@ -122,8 +145,9 @@ struct AutoControlView: View {
                 Text(ble.temperatureC.map { String(format: "%.1f°C", $0) } ?? "--").monospacedDigit()
             }
             .font(.footnote)
-            Text("超出目標 ≤1°C:1 檔 · ≤2:2 檔 · ≤4:3 檔 · ≤6:5 檔 · ≤8:7 檔 · ≤10:9 檔 · 更多:10 檔")
+            Text("需求檔位依超出目標的溫度而定:0.4°C→2 檔、0.8→3、1.5→5、3→7、5→9、6.5→10、8 以上→破壞神(需開啟自動啟用)。接近目標時維持基本檔位,目標越低基本檔位越高。")
                 .font(.caption).foregroundStyle(.white.opacity(0.55))
+            boostToggle
         }
         .foregroundStyle(.white).glassCard()
     }

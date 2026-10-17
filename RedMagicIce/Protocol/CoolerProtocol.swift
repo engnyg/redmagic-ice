@@ -129,6 +129,7 @@ enum CoolerProtocol {
     static func isLikelyCoolerName(_ name: String) -> Bool {
         let s = name.trimmingCharacters(in: .whitespaces).lowercased()
         guard !s.isEmpty else { return false }
+        if s == "pa1246" || CoolerModel.detect(name: s) != .unknown { return true }
         if ["redmagic", "red magic", "nubia", "magcooler", "mag cooler", "jacket", "srq", "8pro"].contains(where: s.contains) { return true }
         return s.range(of: "(^|[^a-z0-9])rm[^a-z0-9]*8[^a-z0-9]*pro([^a-z0-9]|$)", options: .regularExpression) != nil
     }
