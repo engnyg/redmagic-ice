@@ -50,6 +50,16 @@ final class CoolerBLEManager: NSObject, ObservableObject {
     private var writing = false
     private var pollTimer: Timer?
     private let lastKey = "lastPeripheral"
+    private let lastNameKey = "lastPeripheralName"
+
+    /// 自動重連時系統不一定給得出名稱(刷完韌體後尤其常見),機型判斷會變成「未知」而停用 8 Pro 功能。
+    /// 掃描時看到的名稱存起來,系統給不出可辨識的名稱時改用它。
+    private func resolvedName(for p: CBPeripheral) -> String {
+        if let n = p.name, CoolerModel.detect(name: n) != .unknown { return n }
+        if !deviceName.isEmpty, CoolerModel.detect(name: deviceName) != .unknown { return deviceName }
+        if let saved = UserDefaults.standard.string(forKey: lastNameKey) { return saved }
+        return p.name ?? deviceName
+    }
 
     override init() {
         super.init()
@@ -75,6 +85,7 @@ final class CoolerBLEManager: NSObject, ObservableObject {
         c.peripheral.delegate = self
         central.connect(c.peripheral, options: nil)
         UserDefaults.standard.set(c.peripheral.identifier.uuidString, forKey: lastKey)
+        UserDefaults.standard.set(c.name, forKey: lastNameKey)
     }
 
     func disconnect() { if let p = peripheral { central.cancelPeripheralConnection(p) } }
@@ -274,14 +285,14 @@ extension CoolerBLEManager: CBCentralManagerDelegate {
         state = c.state
         if c.state == .poweredOn, let s = UserDefaults.standard.string(forKey: lastKey), let id = UUID(uuidString: s),
            let p = c.retrievePeripherals(withIdentifiers: [id]).first, peripheral == nil {
-            peripheral = p; p.delegate = self; deviceName = p.name ?? deviceName
+            peripheral = p; p.delegate = self; deviceName = resolvedName(for: p)
             c.connect(p, options: nil)  // 自動重連上次裝置
         }
     }
 
     func centralManager(_ c: CBCentralManager, willRestoreState dict: [String: Any]) {
         if let p = (dict[CBCentralManagerRestoredStatePeripheralsKey] as? [CBPeripheral])?.first {
-            peripheral = p; p.delegate = self
+            peripheral = p; p.delegate = self; deviceName = resolvedName(for: p)
         }
     }
 
@@ -295,6 +306,7 @@ extension CoolerBLEManager: CBCentralManagerDelegate {
     }
 
     func centralManager(_ c: CBCentralManager, didConnect p: CBPeripheral) {
+        if CoolerModel.detect(name: deviceName) == .unknown { deviceName = resolvedName(for: p) }
         p.discoverServices(nil)
         // 與 Android 一致:服務發現 7 秒超時則重連
         DispatchQueue.main.asyncAfter(deadline: .now() + 7) { [weak self] in

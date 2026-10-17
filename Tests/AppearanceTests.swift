@@ -60,3 +60,12 @@ final class AppearanceTests: XCTestCase {
         XCTAssertEqual(PhotoLayout.frame(image: img, container: c, scale: 0.1, x: 0, y: 0).size.width, 400, accuracy: 0.01)
     }
 }
+
+final class CoolerNameTests: XCTestCase {
+    func testModelDetectionFromNames() {
+        XCTAssertEqual(CoolerModel.detect(name: "RM Magcooler 8pro"), .rm8Pro)
+        XCTAssertEqual(CoolerModel.detect(name: "SRQ_8PRO_BLE_F80"), .rm8Pro)
+        XCTAssertEqual(CoolerModel.detect(name: ""), .unknown)
+        XCTAssertEqual(CoolerModel.detect(name: "紅魔散熱器"), .unknown)
+    }
+}

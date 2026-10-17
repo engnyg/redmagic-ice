@@ -108,7 +108,7 @@ struct AdvancedLightView: View {
             ZStack {
                 ForEach(0..<FirmwareLight.ledCount, id: \.self) { i in
                     let a = -Double.pi / 2 + Double(i) * 2 * .pi / Double(FirmwareLight.ledCount)
-                    Circle().fill(fw.stored.pixels[i].color)
+                    Circle().fill(fw.stored.pixels.indices.contains(i) ? fw.stored.pixels[i].color : .clear)
                         .frame(width: 30, height: 30)
                         .overlay(Circle().stroke(Color.white.opacity(selected == i ? 1 : 0.25), lineWidth: selected == i ? 3 : 1))
                         .overlay(Text("\(i + 1)").font(.system(size: 10, weight: .bold)).foregroundStyle(.black.opacity(0.55)))
@@ -121,8 +121,14 @@ struct AdvancedLightView: View {
     }
 
     private func pixelBinding(_ i: Int) -> Binding<Color> {
-        Binding(get: { fw.stored.pixels[i].color },
-                set: { fw.stored.pixels[i] = RGB($0); fw.schedulePixels() })
+        Binding(get: { fw.stored.pixels.indices.contains(i) ? fw.stored.pixels[i].color : .clear },
+                set: { if fw.stored.pixels.indices.contains(i) { fw.stored.pixels[i] = RGB($0); fw.schedulePixels() } })
+    }
+
+    /// 調色盤顏色數會隨切換燈效或按「−」改變,SwiftUI 可能用舊的索引去讀剛縮短的陣列而閃退,所以一律檢查範圍。
+    private func paletteBinding(_ i: Int) -> Binding<Color> {
+        Binding(get: { fw.stored.palette.indices.contains(i) ? fw.stored.palette[i].color : .clear },
+                set: { if fw.stored.palette.indices.contains(i) { fw.stored.palette[i] = RGB($0) } })
     }
 
     // MARK: 內建燈效
@@ -142,10 +148,9 @@ struct AdvancedLightView: View {
                 Text("配色").font(.subheadline.weight(.semibold))
                 ForEach(Array(fw.stored.palette.indices), id: \.self) { i in
                     HStack {
-                        ColorPicker("顏色 \(i + 1)", selection: Binding(get: { fw.stored.palette[i].color },
-                                                                         set: { fw.stored.palette[i] = RGB($0) }), supportsOpacity: false)
+                        ColorPicker("顏色 \(i + 1)", selection: paletteBinding(i), supportsOpacity: false)
                         if fw.stored.palette.count > 1 {
-                            Button { fw.stored.palette.remove(at: i) } label: {
+                            Button { if fw.stored.palette.indices.contains(i) { fw.stored.palette.remove(at: i) } } label: {
                                 Image(systemName: "minus.circle.fill").foregroundStyle(.red.opacity(0.85))
                             }.buttonStyle(.plain)
                         }

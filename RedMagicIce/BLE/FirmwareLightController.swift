@@ -28,7 +28,11 @@ final class FirmwareLightController: ObservableObject {
 
     init() {
         let d = UserDefaults.standard
-        if let data = d.data(forKey: Self.key), let s = try? JSONDecoder().decode(Stored.self, from: data) {
+        if let data = d.data(forKey: Self.key), var s = try? JSONDecoder().decode(Stored.self, from: data) {
+            // 存檔若被改壞(顏色數不對、效果編號無效),退回預設,避免畫面用到超出範圍的索引
+            if s.pixels.count != FirmwareLight.ledCount { s.pixels = Self.rainbowRing() }
+            if !FirmwareLight.effects.contains(where: { $0.id == s.effect }) { s.effect = 6 }
+            if s.palette.isEmpty || s.palette.count > 8 { s.palette = FirmwareLight.effects.first { $0.id == s.effect }?.defaultColors ?? Stored().palette }
             stored = s
         } else {
             stored = Stored()
