@@ -8,6 +8,8 @@ final class FirmwareLibrary: ObservableObject {
         var fileName: String
         let size: Int
         let addedAt: Date
+        var builtIn: Bool?          // 隨 App 包一起內建(個人版 IPA 注入);Optional 讓舊存檔可解碼
+        var isBuiltIn: Bool { builtIn ?? false }
         var id: String { sha256 }
         var known: KnownFirmware? { FirmwareCatalog.identify(sha256: sha256) }
     }
@@ -24,6 +26,28 @@ final class FirmwareLibrary: ObservableObject {
         if let d = try? Data(contentsOf: indexURL), let list = try? JSONDecoder().decode([Item].self, from: d) {
             items = list.filter { FileManager.default.fileExists(atPath: file(for: $0.sha256).path) }
         }
+        syncBundled()
+    }
+
+    /// 個人版 IPA 會把韌體注入 App 包的 Firmware/ 資料夾(公開版沒有)。
+    /// 只收「已知清單內、且通過 Telink 映像檔驗證」的檔案,登錄為「內建」。
+    private func syncBundled() {
+        guard let folder = Bundle.main.resourceURL?.appendingPathComponent("Firmware", isDirectory: true),
+              let urls = try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil) else { return }
+        var changed = false
+        for u in urls where u.pathExtension.lowercased() == "bin" {
+            guard let d = try? Data(contentsOf: u), (try? TelinkOTA.validate(d)) != nil else { continue }
+            let sha = TelinkOTA.sha256Hex(d)
+            guard let known = FirmwareCatalog.identify(sha256: sha) else { continue }
+            if let i = items.firstIndex(where: { $0.sha256 == sha }) {
+                if !items[i].isBuiltIn { items[i].builtIn = true; changed = true }
+                continue
+            }
+            guard (try? d.write(to: file(for: sha), options: .atomic)) != nil else { continue }
+            items.append(Item(sha256: sha, fileName: "\(known.title) \(known.version).bin", size: d.count, addedAt: Date(), builtIn: true))
+            changed = true
+        }
+        if changed { saveIndex() }
     }
 
     private func file(for sha: String) -> URL { dir.appendingPathComponent("\(sha).bin") }
@@ -39,7 +63,7 @@ final class FirmwareLibrary: ObservableObject {
         let sha = TelinkOTA.sha256Hex(data)
         if let existing = items.first(where: { $0.sha256 == sha }) { return existing }
         try data.write(to: file(for: sha), options: .atomic)
-        let item = Item(sha256: sha, fileName: fileName, size: data.count, addedAt: Date())
+        let item = Item(sha256: sha, fileName: fileName, size: data.count, addedAt: Date(), builtIn: nil)
         items.append(item)
         saveIndex()
         return item
@@ -57,6 +81,7 @@ final class FirmwareLibrary: ObservableObject {
     }
 
     func remove(_ item: Item) {
+        if item.isBuiltIn, FileManager.default.fileExists(atPath: file(for: item.sha256).path) { return }   // 內建韌體不可刪
         try? FileManager.default.removeItem(at: file(for: item.sha256))
         items.removeAll { $0.sha256 == item.sha256 }
         saveIndex()

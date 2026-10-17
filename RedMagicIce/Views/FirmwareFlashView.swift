@@ -155,7 +155,7 @@ struct FirmwareFlashView: View {
     private var libraryCard: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("韌體庫").font(.headline)
-            Text("本 App 不內建韌體檔(它們是努比亞與冰環作者的檔案,不能由本專案公開散佈)。把檔案匯入一次,之後就能在這裡直接選用,並會依 SHA-256 自動辨識版本與類型。")
+            Text("公開版 App 不含韌體檔(它們是努比亞與冰環作者的檔案,不能由本專案公開散佈)。個人版 IPA 可用 tools/inject_firmware.py 把韌體內建進去;也可以自己匯入一次,之後在這裡直接選用。所有檔案都會依 SHA-256 自動辨識版本與類型。")
                 .font(.caption).foregroundStyle(.white.opacity(0.65))
             if library.items.isEmpty {
                 Text("韌體庫是空的").font(.footnote).foregroundStyle(.white.opacity(0.5))
@@ -165,12 +165,16 @@ struct FirmwareFlashView: View {
                     Button { pick(it) } label: {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(it.known.map { "\($0.title) \($0.version)" } ?? it.fileName).font(.subheadline.weight(.semibold))
-                            Text((it.known?.kindName ?? "未辨識") + " · \(it.size) 位元組 · " + it.sha256.prefix(8))
+                            Text((it.isBuiltIn ? "內建 · " : "") + (it.known?.kindName ?? "未辨識") + " · \(it.size) 位元組 · " + it.sha256.prefix(8))
                                 .font(.caption).foregroundStyle(kindColor(it.known?.kind))
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }.buttonStyle(.plain)
-                    Button { library.remove(it) } label: { Image(systemName: "trash").foregroundStyle(.white.opacity(0.6)) }.buttonStyle(.plain)
+                    if !it.isBuiltIn {
+                        Button { library.remove(it) } label: { Image(systemName: "trash").foregroundStyle(.white.opacity(0.6)) }.buttonStyle(.plain)
+                    } else {
+                        Image(systemName: "lock.fill").font(.footnote).foregroundStyle(.white.opacity(0.4))
+                    }
                 }
                 .padding(10).glass(RoundedRectangle(cornerRadius: 16, style: .continuous), interactive: true)
             }
