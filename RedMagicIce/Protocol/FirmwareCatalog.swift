@@ -1,7 +1,7 @@
 import Foundation
 
-/// 已知的紅魔 8 Pro 韌體(以 SHA-256 辨識)。這裡只內建「身份資料」,不內建檔案本身:
-/// 韌體是努比亞或冰環作者的檔案,不能由本專案公開散佈;檔案請自行取得並匯入「韌體庫」。
+/// 已知的紅魔 8 Pro 韌體(以 SHA-256 辨識)。檔案本身內建於 App 包的 Firmware/(見 Firmware/FIRMWARE_NOTICE.md):
+/// 韌體屬努比亞或冰環作者所有,原樣收錄;也可自行匯入其他檔案到「韌體庫」。
 struct KnownFirmware: Identifiable, Equatable {
     enum Kind: String { case official, newLight, overclock }
 

@@ -2,7 +2,7 @@ import SwiftUI
 import UIKit
 import UniformTypeIdentifiers
 
-/// 韌體刷寫(Telink OTA)。高風險功能:不內建任何韌體檔,只刷你自己選擇、且通過驗證的 .bin。
+/// 韌體刷寫(Telink OTA)。高風險功能:內建已知的 6 個 8 Pro 韌體,也可匯入自己的 .bin;只刷你選擇、且通過驗證的檔案。
 struct FirmwareFlashView: View {
     @EnvironmentObject var ble: CoolerBLEManager
     @EnvironmentObject var ota: TelinkOTAController
@@ -67,7 +67,7 @@ struct FirmwareFlashView: View {
             Label("韌體刷寫(高風險)", systemImage: "exclamationmark.triangle.fill").font(.headline).foregroundStyle(.yellow)
             Text("刷寫韌體不同於一般藍牙設定。刷錯機型或硬體批次、使用損壞或來源不明的 BIN、刷寫中途斷電、斷藍牙、離開或結束 App,都可能造成散熱器無法啟動、無法連線、燈光或風扇異常、進入恢復模式,甚至永久損壞。非官方或修改版韌體還可能影響保固與售後。")
                 .font(.footnote).foregroundStyle(.white.opacity(0.85))
-            Text("本 App 不內建任何韌體檔,也不保證任何韌體適用於所有 8 Pro 批次。刷之前請確認機型、供電穩定、電量充足;刷寫過程中不要關閉散熱器、拔電源、切換其他控制軟體或離開本畫面。因刷機、韌體本身、誤操作、設備個體差異、掉電或藍牙異常造成的損壞與後果,由使用者自行承擔。")
+            Text("本 App 內建的韌體屬原廠與原作者所有、原樣收錄,不保證任何韌體適用於所有 8 Pro 批次。刷之前請確認機型、供電穩定、電量充足;刷寫過程中不要關閉散熱器、拔電源、切換其他控制軟體或離開本畫面。因刷機、韌體本身、誤操作、設備個體差異、掉電或藍牙異常造成的損壞與後果,由使用者自行承擔。")
                 .font(.footnote).foregroundStyle(.white.opacity(0.7))
         }
         .foregroundStyle(.white).glassCard(tint: .red)
@@ -155,7 +155,7 @@ struct FirmwareFlashView: View {
     private var libraryCard: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("韌體庫").font(.headline)
-            Text("公開版 App 不含韌體檔(它們是努比亞與冰環作者的檔案,不能由本專案公開散佈)。個人版 IPA 可用 tools/inject_firmware.py 把韌體內建進去;也可以自己匯入一次,之後在這裡直接選用。所有檔案都會依 SHA-256 自動辨識版本與類型。")
+            Text("已知韌體隨 App 內建,也可以自己匯入其他檔案,之後在這裡直接選用。所有檔案都會依 SHA-256 自動辨識版本與類型。")
                 .font(.caption).foregroundStyle(.white.opacity(0.65))
             if library.items.isEmpty {
                 Text("韌體庫是空的").font(.footnote).foregroundStyle(.white.opacity(0.5))

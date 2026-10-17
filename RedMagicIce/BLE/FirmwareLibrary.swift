@@ -8,7 +8,7 @@ final class FirmwareLibrary: ObservableObject {
         var fileName: String
         let size: Int
         let addedAt: Date
-        var builtIn: Bool?          // 隨 App 包一起內建(個人版 IPA 注入);Optional 讓舊存檔可解碼
+        var builtIn: Bool?          // 隨 App 包一起內建;Optional 讓舊存檔可解碼
         var isBuiltIn: Bool { builtIn ?? false }
         var id: String { sha256 }
         var known: KnownFirmware? { FirmwareCatalog.identify(sha256: sha256) }
@@ -29,7 +29,7 @@ final class FirmwareLibrary: ObservableObject {
         syncBundled()
     }
 
-    /// 個人版 IPA 會把韌體注入 App 包的 Firmware/ 資料夾(公開版沒有)。
+    /// 韌體放在 App 包的 Firmware/ 資料夾(專案內建,或用 tools/inject_firmware.py 注入)。
     /// 只收「已知清單內、且通過 Telink 映像檔驗證」的檔案,登錄為「內建」。
     private func syncBundled() {
         guard let folder = Bundle.main.resourceURL?.appendingPathComponent("Firmware", isDirectory: true),

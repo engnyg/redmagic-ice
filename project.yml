@@ -12,7 +12,11 @@ targets:
   RedMagicIce:
     type: application
     platform: iOS
-    sources: [RedMagicIce, Shared]
+    sources:
+      - RedMagicIce
+      - Shared
+      - path: Firmware
+        type: folder   # 內建韌體,以資料夾參照打進 App 包的 Firmware/
     dependencies:
       - target: RedMagicIceWidgets
     info:
