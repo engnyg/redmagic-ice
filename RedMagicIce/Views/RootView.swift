@@ -1,5 +1,6 @@
 import SwiftUI
 import PhotosUI
+import UniformTypeIdentifiers
 
 extension CoolerBLEManager {
     /// 主題色:隨工作模式變化
@@ -121,6 +122,8 @@ struct MoreView: View {
     @State private var showAbout = false
     @State private var showFlash = false
     @State private var pickedPhoto: PhotosPickerItem?
+    @State private var showPositionEditor = false
+    @State private var showVideoImporter = false
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
@@ -188,12 +191,48 @@ struct MoreView: View {
         }
         .onChange(of: pickedPhoto) { item in
             guard let item else { return }
+            let isMovie = item.supportedContentTypes.contains { $0.conforms(to: .movie) }
             Task {
-                let data = try? await item.loadTransferable(type: Data.self)
-                await MainActor.run {
-                    if let data { appearance.setPhoto(data: data) } else { appearance.message = "無法讀取這張照片,請換一張" }
-                    pickedPhoto = nil
+                if isMovie {
+                    let movie = try? await item.loadTransferable(type: PickedMovie.self)
+                    if let url = movie?.url {
+                        await appearance.setVideo(from: url)
+                        try? FileManager.default.removeItem(at: url)
+                    } else {
+                        await MainActor.run { appearance.message = "無法讀取這個影片,請換一個或改用「從檔案選擇影片」" }
+                    }
+                } else {
+                    let data = try? await item.loadTransferable(type: Data.self)
+                    await MainActor.run {
+                        if let data { appearance.setPhoto(data: data) } else { appearance.message = "無法讀取這張照片,請換一張" }
+                    }
                 }
+                await MainActor.run { pickedPhoto = nil }
+            }
+        }
+        .fileImporter(isPresented: $showVideoImporter, allowedContentTypes: [.movie, .mpeg4Movie, .quickTimeMovie]) { result in
+            switch result {
+            case .success(let url):
+                let access = url.startAccessingSecurityScopedResource()
+                Task {
+                    await appearance.setVideo(from: url)
+                    if access { url.stopAccessingSecurityScopedResource() }
+                }
+            case .failure(let e):
+                appearance.message = "讀取失敗:\(e.localizedDescription)"
+            }
+        }
+        .fullScreenCover(isPresented: $showPositionEditor) {
+            if let img = appearance.photo {
+                PhotoPositionEditor(image: img, blur: appearance.settings.blur, dim: appearance.settings.dim,
+                                    scale: appearance.settings.photoScale, x: appearance.settings.photoX, y: appearance.settings.photoY,
+                                    onDone: { sc, x, y in
+                                        appearance.settings.photoScale = sc
+                                        appearance.settings.photoX = x
+                                        appearance.settings.photoY = y
+                                        showPositionEditor = false
+                                    },
+                                    onCancel: { showPositionEditor = false })
             }
         }
         .sheet(isPresented: $showLab) { OverclockView() }
@@ -220,6 +259,7 @@ extension MoreView {
                     ForEach(AppearanceSettings.Style.allCases) { st in
                         GlassChip(title: st.title, symbol: st.symbol, selected: appearance.settings.style == st, tint: .purple) {
                             if st == .photo && appearance.photo == nil { return }   // 先選照片
+                            if st == .video && !appearance.hasVideo { return }      // 先選影片
                             appearance.settings.style = st
                         }
                     }
@@ -235,19 +275,32 @@ extension MoreView {
                 ColorPicker("結束顏色", selection: rgbBinding($appearance.settings.color2), supportsOpacity: false)
             case .photo:
                 HStack { Image(systemName: "drop"); Slider(value: $appearance.settings.blur, in: 0...30) }
+                if appearance.photo != nil {
+                    GlassChip(title: "調整位置與縮放", symbol: "arrow.up.left.and.arrow.down.right") { showPositionEditor = true }
+                }
+            case .video:
+                Text("影片會靜音、循環播放,切到背景時暫停。建議用短片(10~30 秒),較省電。")
+                    .font(.caption).foregroundStyle(.white.opacity(0.6))
             }
             if appearance.settings.style != .aurora {
                 HStack { Image(systemName: "moon.fill"); Slider(value: $appearance.settings.dim, in: 0...0.7) }
             }
             HStack {
-                PhotosPicker(selection: $pickedPhoto, matching: .images) {
-                    Label(appearance.photo == nil ? "選擇照片" : "更換照片", systemImage: "photo.on.rectangle")
+                PhotosPicker(selection: $pickedPhoto, matching: .any(of: [.images, .videos])) {
+                    Label(appearance.photo == nil && !appearance.hasVideo ? "選擇照片 / 影片" : "更換照片 / 影片",
+                          systemImage: "photo.on.rectangle")
                         .font(.subheadline.weight(.semibold)).foregroundStyle(.white)
                         .padding(.horizontal, 14).padding(.vertical, 10)
                 }
                 .glass(Capsule(), interactive: true)
+                GlassChip(title: "從檔案選影片", symbol: "folder") { showVideoImporter = true }
+            }
+            HStack {
                 if appearance.photo != nil {
                     GlassChip(title: "刪除照片", symbol: "trash") { appearance.removePhoto() }
+                }
+                if appearance.hasVideo {
+                    GlassChip(title: "刪除影片", symbol: "trash") { appearance.removeVideo() }
                 }
             }
             if let m = appearance.message { Text(m).font(.caption).foregroundStyle(.yellow.opacity(0.9)) }
