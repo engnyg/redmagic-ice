@@ -25,6 +25,10 @@ final class CoolerBLEManager: NSObject, ObservableObject {
     @Published var running = false
     @Published var mode: CoolerWorkMode = .idle
     @Published var firmware = ""
+    @Published var mainFirmware = ""      // 2A28 主控固件(例:V8.5.2),擴充燈光需要
+    @Published var moduleFirmware = ""    // 2A26 模組固件
+    @Published private(set) var queueDepth = 0
+    var firmwareLightActive = false         // 固件內建燈效 / 逐顆燈珠生效中(一般燈效前要先送 F4 停止)
     @Published var log: [String] = []
     @Published var lastWriteError: String?
     @Published var lightNoResponseSupported = false   // 1013 是否支援免回覆寫入(快速燈效)
@@ -140,6 +144,31 @@ final class CoolerBLEManager: NSObject, ObservableObject {
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in self?.readValue(.fanMode) }
     }
 
+    // MARK: 固件擴充燈光(8 Pro + 8.5.2 / 8.5.3)
+    var supportsFirmwareLight: Bool {
+        FirmwareLight.isCapable(is8Pro: CoolerModel.detect(name: deviceName) == .rm8Pro, revision: mainFirmware)
+    }
+
+    /// 以新的一批燈光封包取代尚未送出的舊批次(避免連續調色時佇列堆積)
+    func replaceLightBatch(_ packets: [Data]) {
+        queue.removeAll { $0.2 == "燈光批" }
+        for p in packets { queue.append((.light, p, "燈光批")) }
+        queueDepth = queue.count
+        firmwareLightActive = true
+        pump()
+    }
+
+    func sendFirmwareStopIfNeeded() { firmwareLightActive = true; sendFirmwareStopIfActive() }
+
+    private func sendFirmwareStopIfActive() {
+        guard firmwareLightActive else { return }
+        firmwareLightActive = false
+        queue.removeAll { $0.2 == "燈光批" }
+        queue.append((.light, FirmwareLight.stop, "停止固件燈效"))
+        queueDepth = queue.count
+        pump()
+    }
+
     /// 實驗:直接寫入任意位元組到指定特徵(with response)。
     func writeRaw(_ c: CoolerChar, _ data: Data, label: String) { write(c, data, label) }
 
@@ -147,11 +176,15 @@ final class CoolerBLEManager: NSObject, ObservableObject {
         if let p = peripheral, let ch = chars[c], ch.properties.contains(.read) { p.readValue(for: ch) }
     }
 
-    func setLight(_ m: LightMode) { write(.light, CoolerProtocol.lightPayload(m), "燈光") }
+    func setLight(_ m: LightMode) {
+        sendFirmwareStopIfActive()
+        write(.light, CoolerProtocol.lightPayload(m), "燈光")
+    }
 
     /// 軟體燈效逐幀傳送:佇列忙就丟幀(與原版一致,風扇/模式命令優先),不寫日誌避免刷屏。
     @discardableResult
     func sendLightFrame(_ rgb: RGB, fast: Bool = false) -> Bool {
+        if firmwareLightActive { sendFirmwareStopIfActive(); return false }
         guard connected, let ch = chars[.light], let p = peripheral, !writing, queue.isEmpty else { return false }
         let data = CoolerProtocol.lightPayload(.solid(rgb: rgb.tuple))
         // 快速燈效:特徵支援免回覆寫入時直接送出,不必等設備回覆(仍只在佇列空閒時送,風扇命令優先)
@@ -168,15 +201,17 @@ final class CoolerBLEManager: NSObject, ObservableObject {
     // MARK: 寫佇列(序列,with response)
     private func write(_ c: CoolerChar, _ data: Data, _ label: String) {
         queue.append((c, data, label))
+        queueDepth = queue.count
         pump()
     }
 
     private func pump() {
         guard !writing, let p = peripheral, !queue.isEmpty else { return }
         let (c, data, label) = queue.removeFirst()
+        queueDepth = queue.count
         guard let ch = chars[c] else { addLog("缺少特徵 \(c.rawValue):\(label)"); pump(); return }
         writing = true
-        if label != "燈光幀" { addLog("TX \(c.rawValue)=\(data.map { String(format: "%02X", $0) }.joined()) \(label)") }
+        if label != "燈光幀" && label != "燈光批" { addLog("TX \(c.rawValue)=\(data.map { String(format: "%02X", $0) }.joined()) \(label)") }
         p.writeValue(data, for: ch, type: .withResponse)
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { [weak self] in // 超時保護
             guard let self, self.writing else { return }
@@ -293,7 +328,9 @@ extension CoolerBLEManager: CBPeripheralDelegate {
         case .autoTemp: if v.first == 1 { mode = .smart }
         case .boost: if v.first == 1 { mode = .boost }
         case .firmwareModule, .firmwareMain:
-            firmware = String(data: v, encoding: .utf8) ?? v.map { String(format: "%02X", $0) }.joined()
+            let text = String(data: v, encoding: .utf8) ?? v.map { String(format: "%02X", $0) }.joined()
+            firmware = text
+            if key == .firmwareMain { mainFirmware = text } else { moduleFirmware = text }
         default: break
         }
     }

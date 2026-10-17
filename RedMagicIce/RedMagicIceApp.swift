@@ -10,6 +10,7 @@ struct RedMagicIceApp: App {
     @StateObject private var auto = AutoController()
     @StateObject private var updates = UpdateChecker()
     @StateObject private var shutdown = ShutdownTimerController()
+    @StateObject private var fwLight = FirmwareLightController()
     var body: some Scene {
         WindowGroup {
             RootView()
@@ -21,8 +22,9 @@ struct RedMagicIceApp: App {
                 .environmentObject(auto)
                 .environmentObject(updates)
                 .environmentObject(shutdown)
+                .environmentObject(fwLight)
                 .preferredColorScheme(.dark)
-                .onAppear { light.attach(ble); live.attach(ble); auto.attach(ble); shutdown.attach(ble); memory.attach(ble, light, auto) }
+                .onAppear { light.attach(ble); live.attach(ble); auto.attach(ble); shutdown.attach(ble); fwLight.attach(ble); memory.attach(ble, light, auto) }
                 .task { await updates.check() }
         }
     }

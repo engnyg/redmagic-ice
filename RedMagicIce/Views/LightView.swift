@@ -4,12 +4,14 @@ struct LightView: View {
     @EnvironmentObject var ble: CoolerBLEManager
     @EnvironmentObject var light: LightController
     @State private var editing = false
+    @State private var showAdvanced = false
 
     private var active: LightController.Active { light.active }
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
+                advancedEntry
                 hardwareSection
                 softwareSection
                 linkSection
@@ -17,6 +19,25 @@ struct LightView: View {
             }
             .padding(.horizontal, 16).padding(.top, 8).padding(.bottom, 24)
         }
+    }
+
+    private var advancedEntry: some View {
+        Button { showAdvanced = true } label: {
+            HStack(spacing: 14) {
+                Image(systemName: "sparkles").font(.title2).foregroundStyle(.pink)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("進階燈效").font(.headline)
+                    Text("逐顆燈珠上色 · 8 種內建新燈效(8 Pro,固件 8.5.2 / 8.5.3)")
+                        .font(.caption).foregroundStyle(.white.opacity(0.65)).multilineTextAlignment(.leading)
+                }
+                Spacer()
+                Image(systemName: "chevron.right").foregroundStyle(.white.opacity(0.5))
+            }
+            .foregroundStyle(.white).padding(14).frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.plain)
+        .glass(RoundedRectangle(cornerRadius: 24, style: .continuous), tint: .pink, interactive: true)
+        .sheet(isPresented: $showAdvanced) { AdvancedLightView() }
     }
 
     // MARK: 硬體燈效(裝置內建,App 退出後仍然保持)

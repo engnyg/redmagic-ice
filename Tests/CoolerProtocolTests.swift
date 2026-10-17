@@ -112,4 +112,48 @@ final class CoolerProtocolTests: XCTestCase {
         XCTAssertFalse(CoolerModel.rm5Pro.supportsFirmwareAutoTemp)
         XCTAssertTrue(CoolerProtocol.isLikelyCoolerName("PA1246"))
     }
+
+    func testFirmwarePixelFrame() {
+        // 冰環 2.10.46 的 F0/F1 逐燈珠協議:每顆 [F0 i R G] + [F1 i B 00],共 32 筆
+        var colors = [RGB](repeating: .black, count: 16)
+        colors[0] = RGB(r: 255, g: 0, b: 0)
+        colors[1] = .white                                    // 總和 765 > 382 → 等比例壓到 127
+        let f = FirmwareLight.pixelFrame(colors: colors, brightness: 100)
+        XCTAssertEqual(f.count, 32)
+        XCTAssertEqual(f[0], Data([0xF0, 0, 0xFF, 0x00]))
+        XCTAssertEqual(f[1], Data([0xF1, 0, 0x00, 0x00]))
+        XCTAssertEqual(f[2], Data([0xF0, 1, 0x7F, 0x7F]))
+        XCTAssertEqual(f[3], Data([0xF1, 1, 0x7F, 0x00]))
+        XCTAssertEqual(f[30], Data([0xF0, 15, 0, 0]))
+        // 亮度 50%:(255*50+50)/100 = 128
+        XCTAssertEqual(FirmwareLight.pixelFrame(colors: colors, brightness: 50)[0], Data([0xF0, 0, 128, 0]))
+    }
+
+    func testFirmwareEffectConfiguration() {
+        let p = FirmwareLight.configuration(effect: 6, colors: [RGB(r: 255, g: 0, b: 0), RGB(r: 0, g: 255, b: 0)], speed: 50, brightness: 100)!
+        XCTAssertEqual(p[0], Data([0xF5, 2, 0, 0]))
+        XCTAssertEqual(p[1], Data([0xF2, 0, 0xFF, 0x00]))
+        XCTAssertEqual(p[2], Data([0xF3, 0, 0x00, 0]))
+        XCTAssertEqual(p[3], Data([0xF2, 1, 0x00, 0xFF]))
+        XCTAssertEqual(p.last, Data([0xF4, 6, 8, 0x7F]))                       // 週期 round(8^0.5*3)=8、亮度上限 127
+        XCTAssertEqual(FirmwareLight.configuration(effect: 3, colors: [.white], speed: 0, brightness: 40)![0], Data([0xF5, 2, 0, 0]))  // 單色複製成 2 色
+        XCTAssertNil(FirmwareLight.configuration(effect: 9, colors: [.white], speed: 0, brightness: 40))
+        XCTAssertNil(FirmwareLight.configuration(effect: 1, colors: [], speed: 0, brightness: 40))
+        XCTAssertEqual(FirmwareLight.stop, Data([0xF4, 0, 0, 0]))
+        XCTAssertEqual(FirmwareLight.desktopMode(enabled: true), Data([0xF0, 0x10, 1, 0]))
+        XCTAssertEqual(FirmwareLight.period(speed: 100, effect: 1), 12)
+        XCTAssertEqual(FirmwareLight.period(speed: 0, effect: 1), 240)
+        XCTAssertEqual(FirmwareLight.period(speed: 0, effect: 2), 24)
+        XCTAssertEqual(FirmwareLight.effects.count, 8)
+    }
+
+    func testFirmwareCapability() {
+        XCTAssertTrue(FirmwareLight.isCapable(is8Pro: true, revision: "V8.5.2"))
+        XCTAssertTrue(FirmwareLight.isCapable(is8Pro: true, revision: "8.5.3"))
+        XCTAssertFalse(FirmwareLight.isCapable(is8Pro: true, revision: "V8.5.1"))
+        XCTAssertFalse(FirmwareLight.isCapable(is8Pro: true, revision: "V8.5.20"))
+        XCTAssertFalse(FirmwareLight.isCapable(is8Pro: true, revision: "18.5.2"))
+        XCTAssertFalse(FirmwareLight.isCapable(is8Pro: false, revision: "V8.5.2"))
+        XCTAssertEqual(FirmwareLight.limit(RGB(r: 100, g: 100, b: 100)), RGB(r: 100, g: 100, b: 100))
+    }
 }
