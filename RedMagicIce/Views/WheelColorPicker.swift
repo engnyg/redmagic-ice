@@ -5,7 +5,9 @@ struct WheelColorPicker: View {
     let title: String
     @Binding var color: RGB
     @State private var expanded = false
-    @State private var h = 0.0, s = 0.0, v = 1.0
+    @State private var h = 0.0
+    @State private var s = 0.0
+    @State private var v = 1.0
 
     init(_ title: String, color: Binding<RGB>) {
         self.title = title
