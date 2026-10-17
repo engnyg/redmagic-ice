@@ -176,3 +176,23 @@ final class TempResolverTests: XCTestCase {
         XCTAssertNil(CoolerProtocol.parseStatusTempRaw(Data([8, 17])))
     }
 }
+
+final class FirmwarePalettePerEffectTests: XCTestCase {
+    func testPaletteIsRememberedPerEffect() {
+        let c = FirmwareLightController()
+        c.chooseEffect(2)
+        c.resetPalette()
+        let added = RGB(r: 1, g: 2, b: 3)
+        c.stored.palette.append(added)
+        let n = c.stored.palette.count
+        c.chooseEffect(3)
+        XCTAssertNotEqual(c.stored.palette.last, added)          // 效果 3 用自己的配色
+        c.chooseEffect(2)
+        XCTAssertEqual(c.stored.palette.count, n)                // 切回來,新增的顏色還在
+        XCTAssertEqual(c.stored.palette.last, added)
+        c.chooseEffect(2)                                        // 再點一次同一個效果也不會重設
+        XCTAssertEqual(c.stored.palette.last, added)
+        c.resetPalette()
+        XCTAssertNotEqual(c.stored.palette.last, added)
+    }
+}

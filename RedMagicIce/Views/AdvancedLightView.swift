@@ -164,9 +164,13 @@ struct AdvancedLightView: View {
                         }
                     }
                 }
-                if fw.stored.palette.count < 8 {
-                    GlassChip(title: "新增顏色", symbol: "plus") { fw.stored.palette.append(.hsv(Double(fw.stored.palette.count) * 47, 1, 1)) }
+                HStack {
+                    if fw.stored.palette.count < 8 {
+                        GlassChip(title: "新增顏色", symbol: "plus") { fw.stored.palette.append(.hsv(Double(fw.stored.palette.count) * 47, 1, 1)) }
+                    }
+                    GlassChip(title: "還原預設配色", symbol: "arrow.counterclockwise") { fw.resetPalette() }
                 }
+                Text("每個燈效會各自記住自己的配色。").font(.caption2).foregroundStyle(.white.opacity(0.5))
             }
             HStack { Image(systemName: "tortoise.fill")
                 Slider(value: Binding(get: { Double(fw.stored.speed) }, set: { fw.stored.speed = Int($0) }), in: 0...100, step: 1)

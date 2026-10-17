@@ -13,6 +13,7 @@ final class FirmwareLightController: ObservableObject {
         var palette: [RGB] = FirmwareLight.effects[5].defaultColors
         var speed = 50                    // 0...100
         var effectBrightness = 60         // 5...100
+        var palettes: [Int: [RGB]]?       // 每個燈效各自記住的配色(Optional:舊存檔沒有這個欄位)
     }
 
     @Published var stored: Stored { didSet { save() } }
@@ -82,9 +83,23 @@ final class FirmwareLightController: ObservableObject {
     }
 
     // MARK: 內建燈效
+    /// 切換燈效時,把目前效果的配色存起來、載入新效果上次的配色(沒有才用預設)。
+    /// 以前每次切換或再點一次同一個效果都會重設成預設配色,新增的顏色就消失了。
     func chooseEffect(_ id: Int) {
+        var saved = stored.palettes ?? [:]
+        saved[stored.effect] = stored.palette
+        stored.palettes = saved
         stored.effect = id
-        if let e = FirmwareLight.effects.first(where: { $0.id == id }) { stored.palette = e.defaultColors }
+        stored.palette = saved[id] ?? Self.defaultPalette(for: id)
+    }
+
+    func resetPalette() {
+        stored.palette = Self.defaultPalette(for: stored.effect)
+        stored.palettes?[stored.effect] = nil
+    }
+
+    private static func defaultPalette(for id: Int) -> [RGB] {
+        FirmwareLight.effects.first(where: { $0.id == id })?.defaultColors ?? Stored().palette
     }
 
     func startEffect() {
