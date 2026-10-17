@@ -144,6 +144,7 @@ struct AdvancedLightView: View {
                     }
                 }
             }
+            effectPreview
             VStack(alignment: .leading, spacing: 8) {
                 Text("配色").font(.subheadline.weight(.semibold))
                 ForEach(Array(fw.stored.palette.indices), id: \.self) { i in
@@ -181,11 +182,53 @@ struct AdvancedLightView: View {
         .opacity(ble.supportsFirmwareLight ? 1 : 0.5)
     }
 
+    /// 依目前選的燈效、配色、速度、亮度在畫面上模擬(不會送給設備),調整時即時更新。
+    private var effectPreview: some View {
+        let e = fw.stored.effect
+        return VStack(spacing: 6) {
+            TimelineView(.animation) { ctx in
+                let colors = FirmwareEffectSimulator.frame(effect: e, palette: fw.stored.palette, speed: fw.stored.speed,
+                                                           brightness: fw.stored.effectBrightness,
+                                                           time: ctx.date.timeIntervalSinceReferenceDate)
+                RingPreview(colors: colors).frame(height: 150)
+            }
+            Text(FirmwareEffectSimulator.exactEffects.contains(e)
+                 ? "預覽:依韌體結構模擬,實機動作應該相同"
+                 : "預覽:這個效果只是外觀近似,實機可能不同")
+                .font(.caption2).foregroundStyle(.white.opacity(0.55))
+            if case .effect(let running)? = fw.active, let name = FirmwareLight.effects.first(where: { $0.id == running })?.name {
+                Text("散熱器目前執行:\(name)").font(.caption2).foregroundStyle(.green.opacity(0.9))
+            }
+        }
+        .frame(maxWidth: .infinity)
+    }
+
     @ViewBuilder private var statusLine: some View {
         if ble.queueDepth > 1 {
             HStack { ProgressView(); Text("傳送中,剩 \(ble.queueDepth) 筆…") }.font(.caption).foregroundStyle(.white.opacity(0.7))
         } else if !fw.status.isEmpty {
             Text(fw.status).font(.caption).foregroundStyle(.yellow.opacity(0.9))
+        }
+    }
+}
+
+/// 16 顆燈珠排成一圈的小預覽。
+struct RingPreview: View {
+    let colors: [RGB]
+    var body: some View {
+        GeometryReader { geo in
+            let size = min(geo.size.width, geo.size.height)
+            let r = size / 2 - 12
+            ZStack {
+                ForEach(0..<FirmwareLight.ledCount, id: \.self) { i in
+                    let a = -Double.pi / 2 + Double(i) * 2 * .pi / Double(FirmwareLight.ledCount)
+                    let c = colors.indices.contains(i) ? colors[i] : .black
+                    Circle().fill(c == .black ? Color.white.opacity(0.08) : c.color)
+                        .frame(width: 18, height: 18)
+                        .shadow(color: c == .black ? .clear : c.color.opacity(0.9), radius: 6)
+                        .position(x: geo.size.width / 2 + CGFloat(cos(a)) * r, y: geo.size.height / 2 + CGFloat(sin(a)) * r)
+                }
+            }
         }
     }
 }

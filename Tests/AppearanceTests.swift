@@ -69,3 +69,43 @@ final class CoolerNameTests: XCTestCase {
         XCTAssertEqual(CoolerModel.detect(name: "紅魔散熱器"), .unknown)
     }
 }
+
+final class EffectSimulatorTests: XCTestCase {
+    private let two = [RGB(r: 255, g: 0, b: 0), RGB(r: 0, g: 0, b: 255)]
+
+    func testAllEffectsProduceSixteenPixels() {
+        for e in 1...8 {
+            for t in stride(from: 0.0, to: 5.0, by: 0.37) {
+                XCTAssertEqual(FirmwareEffectSimulator.frame(effect: e, palette: two, speed: 50, brightness: 100, time: t).count, 16)
+            }
+        }
+    }
+
+    func testPulseIsAllOnThenAllOff() {
+        // 效果 1:亮相位開頭整圈同色,之後全暗
+        let on = FirmwareEffectSimulator.frame(effect: 1, palette: two, speed: 50, brightness: 100, time: 0)
+        XCTAssertEqual(Set(on.map { $0 }).count, 1)
+        XCTAssertNotEqual(on[0], .black)
+        let period = Double(FirmwareLight.period(speed: 50, effect: 1))
+        let off = FirmwareEffectSimulator.frame(effect: 1, palette: two, speed: 50, brightness: 100,
+                                                time: (period / 3 + 1) * FirmwareEffectSimulator.tick)
+        XCTAssertTrue(off.allSatisfy { $0 == .black })
+    }
+
+    func testFillEffectGrowsFromPixelZero() {
+        let stepDur = Double(FirmwareLight.period(speed: 50, effect: 7)) * FirmwareEffectSimulator.tick
+        let f = FirmwareEffectSimulator.frame(effect: 7, palette: two, speed: 50, brightness: 100, time: stepDur * 3.5)
+        XCTAssertEqual(f.prefix(4).filter { $0 != .black }.count, 4)     // 0...3 亮
+        XCTAssertTrue(f.suffix(12).allSatisfy { $0 == .black })
+    }
+
+    func testBrightnessScalesColors() {
+        let full = FirmwareEffectSimulator.frame(effect: 3, palette: two, speed: 50, brightness: 100, time: 0)[0]
+        let half = FirmwareEffectSimulator.frame(effect: 3, palette: two, speed: 50, brightness: 50, time: 0)[0]
+        XCTAssertGreaterThan(full.r, half.r)
+    }
+
+    func testEmptyPaletteIsDark() {
+        XCTAssertTrue(FirmwareEffectSimulator.frame(effect: 2, palette: [], speed: 50, brightness: 100, time: 1).allSatisfy { $0 == .black })
+    }
+}
