@@ -24,3 +24,7 @@ open RedMagicIce.xcodeproj
 在 Signing 中選擇你自己的 Team,把 `PRODUCT_BUNDLE_IDENTIFIER` 改成唯一值,真機執行(模擬器無藍牙)。
 
 > ⚠️ 本倉庫程式碼在 Linux 環境編寫,**尚未編譯/真機測試**;協議來自靜態分析,首次連線請從日誌面板觀察 TX/回包是否符合預期。
+
+## 工具
+- `tools/inject_firmware.py`:把已知韌體注入另一份 IPA(Firmware/ 資料夾)。
+- `tools/tc32dis.py`:極簡 TC32 反組譯器(指令表來源見檔頭),用來讀 8 Pro 的韌體映像;分析筆記在 `docs/PROTOCOL.md`。
