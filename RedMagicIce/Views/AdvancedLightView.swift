@@ -6,6 +6,7 @@ struct AdvancedLightView: View {
     @EnvironmentObject var fw: FirmwareLightController
     @Environment(\.dismiss) private var dismiss
     @State private var selected = 0
+    @State private var previewMode = false
 
     var body: some View {
         ZStack {
@@ -65,7 +66,16 @@ struct AdvancedLightView: View {
             Text("逐顆燈珠").font(.headline)
             Text("點選圓環上的燈珠,再用下方取色器上色。燈珠編號依硬體排列而定,先試試看再對應實際位置。")
                 .font(.footnote).foregroundStyle(.white.opacity(0.7))
-            ring
+            Picker("", selection: $previewMode) {
+                Text("編輯燈珠").tag(false)
+                Text("預覽燈效").tag(true)
+            }
+            .pickerStyle(.segmented)
+            if previewMode {
+                ringEffectPreview
+            } else {
+                ring
+            }
             HStack {
                 Text("燈珠 \(selected + 1)").font(.subheadline.weight(.semibold))
                 Spacer()
@@ -180,6 +190,28 @@ struct AdvancedLightView: View {
         .foregroundStyle(.white).glassCard()
         .disabled(!ble.supportsFirmwareLight)
         .opacity(ble.supportsFirmwareLight ? 1 : 0.5)
+    }
+
+    /// 逐顆燈珠卡片裡的「預覽燈效」:整圈播放目前選的內建燈效(與下方「固件內建燈效」同一份設定)。
+    private var ringEffectPreview: some View {
+        let e = fw.stored.effect
+        return VStack(spacing: 6) {
+            TimelineView(.animation) { ctx in
+                let colors = FirmwareEffectSimulator.frame(effect: e, palette: fw.stored.palette, speed: fw.stored.speed,
+                                                           brightness: fw.stored.effectBrightness,
+                                                           time: ctx.date.timeIntervalSinceReferenceDate)
+                RingPreview(colors: colors).frame(height: 280)
+            }
+            let name = FirmwareLight.effects.first { $0.id == e }?.name ?? ""
+            Text("預覽:\(name)(到下方「固件內建燈效」換效果、配色、速度)")
+                .font(.caption).foregroundStyle(.white.opacity(0.7))
+            Text(FirmwareEffectSimulator.exactEffects.contains(e) ? "依韌體結構模擬" : "這個效果只是外觀近似,實機可能不同")
+                .font(.caption2).foregroundStyle(.white.opacity(0.5))
+            if case .effect(let running)? = fw.active, let rn = FirmwareLight.effects.first(where: { $0.id == running })?.name {
+                Text("散熱器目前執行:\(rn)").font(.caption2).foregroundStyle(.green.opacity(0.9))
+            }
+        }
+        .frame(maxWidth: .infinity)
     }
 
     /// 依目前選的燈效、配色、速度、亮度在畫面上模擬(不會送給設備),調整時即時更新。
