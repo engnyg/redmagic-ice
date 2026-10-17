@@ -51,6 +51,27 @@ final class CoolerBLEManager: NSObject, ObservableObject {
     private var pollTimer: Timer?
     private let lastKey = "lastPeripheral"
     private let lastNameKey = "lastPeripheralName"
+    private var tempResolver = CoolerTempResolver()
+    private var lastTempDisagreementLog = Date.distantPast
+
+    /// 5 Pro / 6 Pro 的 1015 溫度不用 −6(與冰環一致);8 Pro 與還認不出機型的一律 −6。
+    private var tempOffsetApplies: Bool {
+        let m = CoolerModel.detect(name: deviceName)
+        return m != .rm5Pro && m != .rm6Pro
+    }
+
+    private func refreshTemperature() {
+        let now = Date.timeIntervalSinceReferenceDate
+        let offset = tempOffsetApplies
+        // 8 Pro 以 1015 為主;其他機型以 1014 為主
+        let preferStatus = CoolerModel.detect(name: deviceName) != .rm5Pro && CoolerModel.detect(name: deviceName) != .rm6Pro
+        if let t = tempResolver.resolve(applyOffset: offset, preferStatus: preferStatus, now: now) { temperatureC = t }
+        if let d = tempResolver.disagreement(applyOffset: offset, now: now), abs(d) >= 3,
+           Date().timeIntervalSince(lastTempDisagreementLog) > 30 {
+            lastTempDisagreementLog = Date()
+            addLog(String(format: "溫度兩個來源差 %.0f°C(1014 減 1015 校正後);目前以%@為準", d, preferStatus ? "1015" : "1014"))
+        }
+    }
 
     /// 自動重連時系統不一定給得出名稱(刷完韌體後尤其常見),機型判斷會變成「未知」而停用 8 Pro 功能。
     /// 掃描時看到的名稱存起來,系統給不出可辨識的名稱時改用它。
@@ -363,11 +384,11 @@ extension CoolerBLEManager: CBPeripheralDelegate {
         switch key {
         case .status:
             let u = CoolerProtocol.parseStatus(v)
-            if let t = u.temperatureC { temperatureC = t }
+            if let raw = CoolerProtocol.parseStatusTempRaw(v) { tempResolver.note1015(raw: raw, now: Date.timeIntervalSinceReferenceDate); refreshTemperature() }
             if let r = u.rpm { rpm = r }
             if let w = u.powerW { powerW = w }
             if let r = u.running { running = r; if !r { mode = .idle } }
-        case .temp: if let t = CoolerProtocol.parseTemp(v) { temperatureC = t }
+        case .temp: if let t = CoolerProtocol.parseTemp(v) { tempResolver.note1014(t, now: Date.timeIntervalSinceReferenceDate); refreshTemperature() }
         case .fanSpeed, .fanSpeedAlt: if let r = CoolerProtocol.parseRpm(v) { rpm = r }
         case .power, .powerAlt: if let w = CoolerProtocol.parsePower(v) { powerW = w }
         case .powerMode: if let b = v.first { running = (b == 2) ; if b == 3 { mode = .idle } }

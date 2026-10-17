@@ -88,6 +88,14 @@ enum CoolerProtocol {
     /// 1015 狀態包 `04 xx`:顯示溫度 = xx − 6 °C。
     /// 官方 App 抓包(`04 03` → −3°C、`04 08` → 2°C)與冰環的 applyOfficialTempOffset 一致。
     static let statusTempOffset: Float = 6
+    /// 1015 `04 xx` 的原始值(未校正);是否要 −6 由機型決定
+    static func parseStatusTempRaw(_ v: Data) -> Float? {
+        let b = [UInt8](v)
+        guard b.count >= 2, b[0] == 4 else { return nil }
+        let t = Float(Int8(bitPattern: b[1]))
+        return (-34...86).contains(t) ? t : nil
+    }
+
     static func parseStatusTemp(_ v: Data) -> Float? {
         let b = [UInt8](v)
         guard b.count >= 2, b[0] == 4 else { return nil }

@@ -131,3 +131,48 @@ final class HSVTests: XCTestCase {
         XCTAssertEqual(RGB.white.hsv.s, 0)
     }
 }
+
+final class TempResolverTests: XCTestCase {
+    func testStatusIsPreferredOn8ProAndOffsetApplied() {
+        var r = CoolerTempResolver()
+        r.note1015(raw: 17, now: 100)           // 校正後 11
+        r.note1014(17, now: 100)                // 1014 直接回 17,差 6
+        XCTAssertEqual(r.resolve(applyOffset: true, preferStatus: true, now: 101), 11)
+        // 1014 之後單獨更新也不會讓顯示跳到 17
+        r.note1014(18, now: 102)
+        XCTAssertEqual(r.resolve(applyOffset: true, preferStatus: true, now: 102), 11)
+    }
+
+    func testFallsBackTo1014WithLearnedDeltaWhenStatusGoesStale() {
+        var r = CoolerTempResolver()
+        r.note1015(raw: 17, now: 100)
+        r.note1014(17, now: 100)
+        _ = r.resolve(applyOffset: true, preferStatus: true, now: 100)      // 學到 delta = 6
+        r.note1014(19, now: 120)                                             // 1015 已逾時(20 秒前)
+        XCTAssertEqual(r.resolve(applyOffset: true, preferStatus: true, now: 120), 13)   // 19 − 6
+    }
+
+    func testDirectSourceFirstForOtherModels() {
+        var r = CoolerTempResolver()
+        r.note1015(raw: 17, now: 100)
+        r.note1014(15, now: 100)
+        XCTAssertEqual(r.resolve(applyOffset: false, preferStatus: false, now: 101), 15)
+    }
+
+    func testNothingFresh() {
+        var r = CoolerTempResolver()
+        r.note1015(raw: 17, now: 0)
+        XCTAssertNil(r.resolve(applyOffset: true, preferStatus: true, now: 100))
+    }
+
+    func testDisagreementReported() {
+        var r = CoolerTempResolver()
+        r.note1015(raw: 17, now: 100); r.note1014(17, now: 100)
+        XCTAssertEqual(r.disagreement(applyOffset: true, now: 101), 6)
+    }
+
+    func testStatusTempRaw() {
+        XCTAssertEqual(CoolerProtocol.parseStatusTempRaw(Data([4, 17, 0, 0])), 17)
+        XCTAssertNil(CoolerProtocol.parseStatusTempRaw(Data([8, 17])))
+    }
+}
