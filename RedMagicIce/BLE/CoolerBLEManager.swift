@@ -28,6 +28,14 @@ final class CoolerBLEManager: NSObject, ObservableObject {
     @Published var mainFirmware = ""      // 2A28 主控固件(例:V8.5.2),擴充燈光需要
     @Published var moduleFirmware = ""    // 2A26 模組固件
     @Published private(set) var queueDepth = 0
+    @Published private(set) var otaActive = false        // 刷寫期間凍結所有其他藍牙操作
+    @Published private(set) var otaAvailable = false     // 已找到 Telink OTA 特徵
+    private var otaChar: CBCharacteristic?
+    static let otaCharUUID = CBUUID(string: TelinkOTA.characteristicUUID)
+    var onOTANotify: ((Data) -> Void)?
+    var onOTAReady: (() -> Void)?
+    var onOTANotifyState: ((Error?) -> Void)?
+    var onOTADisconnect: (() -> Void)?
     var firmwareLightActive = false         // 固件內建燈效 / 逐顆燈珠生效中(一般燈效前要先送 F4 停止)
     @Published var log: [String] = []
     @Published var lastWriteError: String?
@@ -144,6 +152,27 @@ final class CoolerBLEManager: NSObject, ObservableObject {
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in self?.readValue(.fanMode) }
     }
 
+    // MARK: Telink OTA
+    var otaContext: (peripheral: CBPeripheral, characteristic: CBCharacteristic)? {
+        guard connected, let p = peripheral, let c = otaChar else { return nil }
+        return (p, c)
+    }
+
+    /// 開始 / 結束刷寫:開始時清空佇列、停止輪詢與固件燈效狀態,之後只允許 OTA 控制器寫入
+    func setOTAActive(_ on: Bool) {
+        otaActive = on
+        if on {
+            pollTimer?.invalidate(); pollTimer = nil
+            queue.removeAll(); queueDepth = 0
+            writing = false
+            firmwareLightActive = false
+            addLog("OTA:開始,已凍結其他藍牙操作")
+        } else {
+            if connected { startPolling() }
+            addLog("OTA:結束,已恢復一般操作")
+        }
+    }
+
     // MARK: 固件擴充燈光(8 Pro + 8.5.2 / 8.5.3)
     var supportsFirmwareLight: Bool {
         FirmwareLight.isCapable(is8Pro: CoolerModel.detect(name: deviceName) == .rm8Pro, revision: mainFirmware)
@@ -151,6 +180,7 @@ final class CoolerBLEManager: NSObject, ObservableObject {
 
     /// 以新的一批燈光封包取代尚未送出的舊批次(避免連續調色時佇列堆積)
     func replaceLightBatch(_ packets: [Data]) {
+        guard !otaActive else { return }
         queue.removeAll { $0.2 == "燈光批" }
         for p in packets { queue.append((.light, p, "燈光批")) }
         queueDepth = queue.count
@@ -185,7 +215,7 @@ final class CoolerBLEManager: NSObject, ObservableObject {
     @discardableResult
     func sendLightFrame(_ rgb: RGB, fast: Bool = false) -> Bool {
         if firmwareLightActive { sendFirmwareStopIfActive(); return false }
-        guard connected, let ch = chars[.light], let p = peripheral, !writing, queue.isEmpty else { return false }
+        guard !otaActive, connected, let ch = chars[.light], let p = peripheral, !writing, queue.isEmpty else { return false }
         let data = CoolerProtocol.lightPayload(.solid(rgb: rgb.tuple))
         // 快速燈效:特徵支援免回覆寫入時直接送出,不必等設備回覆(仍只在佇列空閒時送,風扇命令優先)
         if fast, ch.properties.contains(.writeWithoutResponse) {
@@ -200,13 +230,14 @@ final class CoolerBLEManager: NSObject, ObservableObject {
 
     // MARK: 寫佇列(序列,with response)
     private func write(_ c: CoolerChar, _ data: Data, _ label: String) {
+        guard !otaActive else { return }
         queue.append((c, data, label))
         queueDepth = queue.count
         pump()
     }
 
     private func pump() {
-        guard !writing, let p = peripheral, !queue.isEmpty else { return }
+        guard !otaActive, !writing, let p = peripheral, !queue.isEmpty else { return }
         let (c, data, label) = queue.removeFirst()
         queueDepth = queue.count
         guard let ch = chars[c] else { addLog("缺少特徵 \(c.rawValue):\(label)"); pump(); return }
@@ -232,7 +263,7 @@ final class CoolerBLEManager: NSObject, ObservableObject {
     private func startPolling() {
         pollTimer?.invalidate()
         pollTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
-            guard let self, let p = self.peripheral, self.connected else { return }
+            guard let self, !self.otaActive, let p = self.peripheral, self.connected else { return }
             for c in [CoolerChar.status, .temp, .fanSpeed, .power] { if let ch = self.chars[c] { p.readValue(for: ch) } }
         }
     }
@@ -274,6 +305,8 @@ extension CoolerBLEManager: CBCentralManagerDelegate {
 
     func centralManager(_ c: CBCentralManager, didDisconnectPeripheral p: CBPeripheral, error: Error?) {
         connected = false; chars.removeAll(); queue.removeAll(); writing = false; pollTimer?.invalidate()
+        otaChar = nil; otaAvailable = false
+        onOTADisconnect?()
         if peripheral === p, UserDefaults.standard.string(forKey: lastKey) != nil { c.connect(p, options: nil) }
     }
 
@@ -289,6 +322,7 @@ extension CoolerBLEManager: CBPeripheralDelegate {
 
     func peripheral(_ p: CBPeripheral, didDiscoverCharacteristicsFor s: CBService, error: Error?) {
         for ch in s.characteristics ?? [] {
+            if ch.uuid == Self.otaCharUUID { otaChar = ch; otaAvailable = true; continue }   // 不在連線時訂閱或讀取,刷寫時才使用
             guard let key = CoolerChar(rawValue: ch.uuid.uuidString.uppercased()) else { continue }
             // 101C/101D 為 1019/101A 的備用,優先使用前者(與原版一致)
             switch key {
@@ -311,6 +345,7 @@ extension CoolerBLEManager: CBPeripheralDelegate {
     }
 
     func peripheral(_ p: CBPeripheral, didUpdateValueFor ch: CBCharacteristic, error: Error?) {
+        if ch.uuid == Self.otaCharUUID { if let v = ch.value { onOTANotify?(v) }; return }
         guard let v = ch.value, let key = CoolerChar(rawValue: ch.uuid.uuidString.uppercased()) else { return }
         switch key {
         case .status:
@@ -339,5 +374,15 @@ extension CoolerBLEManager: CBPeripheralDelegate {
         if let error { addLog("寫入失敗: \(error.localizedDescription)"); lastWriteError = error.localizedDescription }
         else { lastWriteError = nil }
         writing = false; pump()
+    }
+}
+
+extension CoolerBLEManager {
+    func peripheral(_ p: CBPeripheral, didUpdateNotificationStateFor ch: CBCharacteristic, error: Error?) {
+        if ch.uuid == Self.otaCharUUID { onOTANotifyState?(error) }
+    }
+
+    func peripheralIsReady(toSendWriteWithoutResponse p: CBPeripheral) {
+        onOTAReady?()
     }
 }

@@ -156,4 +156,44 @@ final class CoolerProtocolTests: XCTestCase {
         XCTAssertFalse(FirmwareLight.isCapable(is8Pro: false, revision: "V8.5.2"))
         XCTAssertEqual(FirmwareLight.limit(RGB(r: 100, g: 100, b: 100)), RGB(r: 100, g: 100, b: 100))
     }
+
+    func testTelinkOTAProtocol() throws {
+        // CRC16(0xA001, init 0xFFFF)標準測試向量
+        XCTAssertEqual(TelinkOTA.crc16(Array("123456789".utf8), length: 9), 0x4B37)
+        // 標準 CRC32 測試向量
+        XCTAssertEqual(TelinkOTA.crc32(Array("123456789".utf8)[...]), 0xCBF43926)
+
+        // 組一個合法映像:1028 位元組(1028 % 16 == 4)、KNLT 標識、長度欄位、尾端 CRC32 補數
+        var img = [UInt8](repeating: 0x5A, count: 1028)
+        img[8] = 0x4B; img[9] = 0x4E; img[10] = 0x4C; img[11] = 0x54
+        img[24] = UInt8(1028 & 0xFF); img[25] = UInt8(1028 >> 8); img[26] = 0; img[27] = 0
+        let crc = TelinkOTA.crc32(img[0..<1024]) ^ 0xFFFF_FFFF
+        for i in 0..<4 { img[1024 + i] = UInt8((crc >> UInt32(i * 8)) & 0xFF) }
+        XCTAssertNoThrow(try TelinkOTA.validate(Data(img)))
+
+        var bad = img; bad[100] ^= 0xFF
+        XCTAssertThrowsError(try TelinkOTA.validate(Data(bad)))                     // CRC 不符
+        var noMagic = img; noMagic[8] = 0
+        XCTAssertThrowsError(try TelinkOTA.validate(Data(noMagic)))                 // 沒有 KNLT
+        XCTAssertThrowsError(try TelinkOTA.validate(Data(img.prefix(1000))))        // 長度不合法
+
+        // 封包格式
+        let data = Data((0..<20).map { UInt8($0) })
+        XCTAssertEqual(TelinkOTA.packetCount(data), 2)
+        let p1 = [UInt8](TelinkOTA.packet(data, index: 1))
+        XCTAssertEqual(p1.count, 20)
+        XCTAssertEqual(Array(p1[0..<6]), [1, 0, 16, 17, 18, 19])
+        XCTAssertEqual(Array(p1[6..<18]), [UInt8](repeating: 0xFF, count: 12))      // 不足補 FF
+        let c = TelinkOTA.crc16(p1, length: 18)
+        XCTAssertEqual(p1[18], UInt8(c & 0xFF)); XCTAssertEqual(p1[19], UInt8(c >> 8))
+
+        // 結束包:idx=255 → ~idx(16 位)=0xFF00
+        XCTAssertEqual(Array([UInt8](TelinkOTA.endPacket(lastIndex: 255)).prefix(6)), [0x02, 0xFF, 0xFF, 0x00, 0x00, 0xFF])
+        XCTAssertEqual(TelinkOTA.startCommand, Data([0x00, 0xFF]))
+
+        let frames = TelinkOTA.frames(for: Data(img))
+        XCTAssertEqual(frames.count, 65 + 2)                                         // 開始 + 65 包資料 + 結束
+        XCTAssertEqual(frames.first, Data([0x00, 0xFF]))
+        XCTAssertEqual(frames.last, TelinkOTA.endPacket(lastIndex: 64))
+    }
 }
