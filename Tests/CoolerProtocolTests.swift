@@ -196,4 +196,16 @@ final class CoolerProtocolTests: XCTestCase {
         XCTAssertEqual(frames.first, Data([0x00, 0xFF]))
         XCTAssertEqual(frames.last, TelinkOTA.endPacket(lastIndex: 64))
     }
+
+    func testFirmwareCatalog() {
+        XCTAssertEqual(FirmwareCatalog.known.count, 6)
+        XCTAssertTrue(FirmwareCatalog.known.allSatisfy { $0.sha256.count == 64 && $0.sha256 == $0.sha256.lowercased() })
+        XCTAssertEqual(Set(FirmwareCatalog.known.map(\.sha256)).count, 6)              // 沒有重複
+        let official = FirmwareCatalog.identify(sha256: "7F7219630F7CA86D4D72ABC5FD99E530655EAE86BF05CA5E4407F25FD36B3148")
+        XCTAssertEqual(official?.version, "V8.4.7"); XCTAssertEqual(official?.kind, .official)
+        XCTAssertEqual(FirmwareCatalog.known.filter { $0.kind == .overclock }.count, 4)
+        XCTAssertNil(FirmwareCatalog.identify(sha256: String(repeating: "0", count: 64)))
+        // 所有已知韌體的大小都符合 Telink 映像檔規則
+        XCTAssertTrue(FirmwareCatalog.known.allSatisfy { $0.size >= 1024 && $0.size < TelinkOTA.maxSize && $0.size % 16 == 4 })
+    }
 }

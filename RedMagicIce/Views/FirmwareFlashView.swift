@@ -8,6 +8,7 @@ struct FirmwareFlashView: View {
     @EnvironmentObject var ota: TelinkOTAController
     @EnvironmentObject var light: LightController
     @EnvironmentObject var auto: AutoController
+    @EnvironmentObject var library: FirmwareLibrary
 
     static let confirmPhrase = "刷韌體導致的問題由我自行承擔"
 
@@ -17,8 +18,12 @@ struct FirmwareFlashView: View {
     @State private var imageError: String?
     @State private var typed = ""
     @State private var showTrace = false
+    @State private var saveToLibrary = true
+    @State private var ackOverclock = false
 
     private var sha: String { image.map(TelinkOTA.sha256Hex) ?? "" }
+    private var identified: KnownFirmware? { sha.isEmpty ? nil : FirmwareCatalog.identify(sha256: sha) }
+    private var needsOverclockAck: Bool { identified?.kind == .overclock }
     private var is8Pro: Bool { CoolerModel.detect(name: ble.deviceName) == .rm8Pro }
     private var batteryOK: Bool {
         UIDevice.current.isBatteryMonitoringEnabled = true
@@ -37,7 +42,7 @@ struct FirmwareFlashView: View {
          ("韌體檔通過驗證", image != nil && imageError == nil, image == nil ? "尚未選擇" : (imageError ?? "KNLT 標識、長度、CRC32 皆正確"))]
     }
     private var allOK: Bool { checks.allSatisfy { $0.1 } }
-    private var confirmed: Bool { typed.trimmingCharacters(in: .whitespaces) == Self.confirmPhrase }
+    private var confirmed: Bool { typed.trimmingCharacters(in: .whitespaces) == Self.confirmPhrase && (!needsOverclockAck || ackOverclock) }
 
     var body: some View {
         ZStack {
@@ -70,6 +75,8 @@ struct FirmwareFlashView: View {
 
     // MARK: 選檔 / 檢查 / 確認
     @ViewBuilder private var setupCards: some View {
+        libraryCard
+
         VStack(alignment: .leading, spacing: 10) {
             Text("1 · 選擇韌體檔").font(.headline)
             GlassChip(title: image == nil ? "從「檔案」選擇 .bin" : "重新選擇", symbol: "doc.badge.plus") { picking = true }
@@ -81,6 +88,10 @@ struct FirmwareFlashView: View {
                 }
             }
             if let e = imageError { Label(e, systemImage: "xmark.octagon.fill").font(.footnote).foregroundStyle(.red) }
+            identityView
+            if image != nil, imageError == nil {
+                Toggle("保存到韌體庫(下次可直接選用)", isOn: $saveToLibrary)
+            }
             Text("驗證規則與原作者相同:大小在 1 KB 與 124 KB 之間且 (大小 mod 16) = 4、偏移 8 處為 KNLT 標識、偏移 24 的長度欄位等於檔案大小、尾端 CRC32 正確。通過驗證只代表檔案完整,不代表適用於你的設備。")
                 .font(.caption).foregroundStyle(.white.opacity(0.55))
         }
@@ -102,6 +113,10 @@ struct FirmwareFlashView: View {
 
         VStack(alignment: .leading, spacing: 10) {
             Text("3 · 確認並開始").font(.headline)
+            if needsOverclockAck {
+                Toggle("我了解這是第三方修改的超頻韌體,會突破風扇出廠限制,可能損壞風扇或散熱器、影響保固", isOn: $ackOverclock)
+                    .font(.footnote).tint(.red)
+            }
             Text("請輸入以下句子以確認你了解風險:").font(.footnote).foregroundStyle(.white.opacity(0.7))
             Text(Self.confirmPhrase).font(.subheadline.weight(.semibold)).foregroundStyle(.yellow)
             TextField("在此輸入上面的句子", text: $typed)
@@ -117,6 +132,71 @@ struct FirmwareFlashView: View {
             if !allOK { Text("尚有檢查項目未通過,無法開始。").font(.caption).foregroundStyle(.orange) }
         }
         .foregroundStyle(.white).glassCard()
+    }
+
+    // MARK: 韌體庫與辨識
+    @ViewBuilder private var identityView: some View {
+        if let k = identified {
+            VStack(alignment: .leading, spacing: 4) {
+                Label("已辨識:\(k.title) \(k.version) · \(k.kindName)", systemImage: "checkmark.seal.fill")
+                    .font(.footnote.weight(.semibold)).foregroundStyle(k.kind == .overclock ? .red : .green)
+                Text(k.note).font(.caption).foregroundStyle(.white.opacity(0.7))
+                if k.kind != .official {
+                    Text("建議第一次先刷官方 V8.4.7,確認整個流程能跑通、刷完設備正常,再考慮其他韌體。")
+                        .font(.caption).foregroundStyle(.yellow.opacity(0.85))
+                }
+            }
+        } else if image != nil, imageError == nil {
+            Label("未辨識的韌體:檔案完整,但不在已知清單內,請自行確認機型與來源", systemImage: "questionmark.diamond.fill")
+                .font(.footnote).foregroundStyle(.orange)
+        }
+    }
+
+    private var libraryCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("韌體庫").font(.headline)
+            Text("本 App 不內建韌體檔(它們是努比亞與冰環作者的檔案,不能由本專案公開散佈)。把檔案匯入一次,之後就能在這裡直接選用,並會依 SHA-256 自動辨識版本與類型。")
+                .font(.caption).foregroundStyle(.white.opacity(0.65))
+            if library.items.isEmpty {
+                Text("韌體庫是空的").font(.footnote).foregroundStyle(.white.opacity(0.5))
+            }
+            ForEach(library.items) { it in
+                HStack(spacing: 10) {
+                    Button { pick(it) } label: {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(it.known.map { "\($0.title) \($0.version)" } ?? it.fileName).font(.subheadline.weight(.semibold))
+                            Text((it.known?.kindName ?? "未辨識") + " · \(it.size) 位元組 · " + it.sha256.prefix(8))
+                                .font(.caption).foregroundStyle(kindColor(it.known?.kind))
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }.buttonStyle(.plain)
+                    Button { library.remove(it) } label: { Image(systemName: "trash").foregroundStyle(.white.opacity(0.6)) }.buttonStyle(.plain)
+                }
+                .padding(10).glass(RoundedRectangle(cornerRadius: 16, style: .continuous), interactive: true)
+            }
+            let missing = FirmwareCatalog.known.filter { k in !library.items.contains { $0.sha256 == k.sha256 } }
+            if !missing.isEmpty {
+                Text("已知但尚未匯入").font(.caption.weight(.semibold)).foregroundStyle(.white.opacity(0.6)).padding(.top, 4)
+                ForEach(missing) { k in
+                    HStack {
+                        Text("\(k.title) \(k.version)").font(.caption)
+                        Spacer()
+                        Text(k.kindName).font(.caption2).foregroundStyle(kindColor(k.kind))
+                    }.foregroundStyle(.white.opacity(0.55))
+                }
+            }
+        }
+        .foregroundStyle(.white).glassCard()
+    }
+
+    private func kindColor(_ k: KnownFirmware.Kind?) -> Color {
+        switch k { case .official: return .green; case .newLight: return .pink; case .overclock: return .red; case .none: return .gray }
+    }
+
+    private func pick(_ it: FirmwareLibrary.Item) {
+        imageError = nil; typed = ""; ackOverclock = false
+        guard let d = library.load(it) else { image = nil; imageError = "韌體庫中的檔案已損壞或被改動,已移除,請重新匯入"; return }
+        image = d; fileName = it.fileName
     }
 
     // MARK: 進度 / 結果
@@ -162,7 +242,7 @@ struct FirmwareFlashView: View {
     }
 
     private func load(_ r: Result<[URL], Error>) {
-        imageError = nil; image = nil; typed = ""
+        imageError = nil; image = nil; typed = ""; ackOverclock = false
         guard case .success(let urls) = r, let url = urls.first else { imageError = "沒有選到檔案"; return }
         let scoped = url.startAccessingSecurityScopedResource()
         defer { if scoped { url.stopAccessingSecurityScopedResource() } }
@@ -171,6 +251,9 @@ struct FirmwareFlashView: View {
         }
         guard let d = try? Data(contentsOf: url) else { imageError = "無法讀取所選檔案"; return }
         fileName = url.lastPathComponent
-        do { try TelinkOTA.validate(d); image = d } catch { image = d; imageError = error.localizedDescription }
+        do {
+            try TelinkOTA.validate(d); image = d
+            if saveToLibrary { try? library.add(data: d, fileName: fileName) }
+        } catch { image = d; imageError = error.localizedDescription }
     }
 }

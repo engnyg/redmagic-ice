@@ -12,6 +12,7 @@ struct RedMagicIceApp: App {
     @StateObject private var shutdown = ShutdownTimerController()
     @StateObject private var fwLight = FirmwareLightController()
     @StateObject private var ota = TelinkOTAController()
+    @StateObject private var fwLibrary = FirmwareLibrary()
     var body: some Scene {
         WindowGroup {
             RootView()
@@ -25,6 +26,7 @@ struct RedMagicIceApp: App {
                 .environmentObject(shutdown)
                 .environmentObject(fwLight)
                 .environmentObject(ota)
+                .environmentObject(fwLibrary)
                 .preferredColorScheme(.dark)
                 .onAppear { light.attach(ble); live.attach(ble); auto.attach(ble); shutdown.attach(ble); fwLight.attach(ble); ota.attach(ble); memory.attach(ble, light, auto) }
                 .task { await updates.check() }
