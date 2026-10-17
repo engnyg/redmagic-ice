@@ -46,7 +46,7 @@ struct LightProbeView: View {
             Stepper("模式 0x\(String(format: "%02X", mode))(\(mode))", value: $mode, in: 0...63)
             Toggle("多帶一個「燈珠編號」位元組", isOn: $withIndex)
             if withIndex { Stepper("燈珠編號 \(index)", value: $index, in: 0...63) }
-            ColorPicker("顏色", selection: rgbBinding($color), supportsOpacity: false)
+            WheelColorPicker("顏色", color: $color)
             GlassGroup {
                 FlowRow {
                     GlassChip(title: "傳送", symbol: "paperplane.fill", selected: true, tint: .orange) {

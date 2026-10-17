@@ -109,3 +109,25 @@ final class EffectSimulatorTests: XCTestCase {
         XCTAssertTrue(FirmwareEffectSimulator.frame(effect: 2, palette: [], speed: 50, brightness: 100, time: 1).allSatisfy { $0 == .black })
     }
 }
+
+final class HSVTests: XCTestCase {
+    func testHSVRoundTrip() {
+        for c in [RGB(r: 255, g: 0, b: 0), RGB(r: 0, g: 255, b: 0), RGB(r: 0, g: 0, b: 255), RGB(r: 255, g: 255, b: 0),
+                  RGB(r: 12, g: 200, b: 99), RGB(r: 255, g: 255, b: 255), RGB(r: 90, g: 90, b: 90)] {
+            let x = c.hsv
+            let back = RGB.hsv(x.h, x.s, x.v)
+            XCTAssertEqual(Int(back.r), Int(c.r), accuracy: 1)
+            XCTAssertEqual(Int(back.g), Int(c.g), accuracy: 1)
+            XCTAssertEqual(Int(back.b), Int(c.b), accuracy: 1)
+        }
+    }
+
+    func testHSVKnownValues() {
+        let red = RGB(r: 255, g: 0, b: 0).hsv
+        XCTAssertEqual(red.h, 0, accuracy: 0.01); XCTAssertEqual(red.s, 1, accuracy: 1e-9); XCTAssertEqual(red.v, 1, accuracy: 1e-9)
+        XCTAssertEqual(RGB(r: 0, g: 255, b: 0).hsv.h, 120, accuracy: 0.01)
+        XCTAssertEqual(RGB(r: 0, g: 0, b: 255).hsv.h, 240, accuracy: 0.01)
+        XCTAssertEqual(RGB.black.hsv.v, 0)
+        XCTAssertEqual(RGB.white.hsv.s, 0)
+    }
+}

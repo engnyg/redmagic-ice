@@ -76,11 +76,8 @@ struct AdvancedLightView: View {
             } else {
                 ring
             }
-            HStack {
-                Text("燈珠 \(selected + 1)").font(.subheadline.weight(.semibold))
-                Spacer()
-                ColorPicker("", selection: pixelBinding(selected), supportsOpacity: false).labelsHidden()
-            }
+            WheelColorPicker("燈珠 \(selected + 1) 的顏色", color: pixelBinding(selected))
+                .font(.subheadline.weight(.semibold))
             GlassGroup {
                 FlowRow {
                     GlassChip(title: "彩虹環", symbol: "rainbow") { fw.setRainbow(); fw.schedulePixels() }
@@ -130,15 +127,15 @@ struct AdvancedLightView: View {
         .frame(height: 280)
     }
 
-    private func pixelBinding(_ i: Int) -> Binding<Color> {
-        Binding(get: { fw.stored.pixels.indices.contains(i) ? fw.stored.pixels[i].color : .clear },
-                set: { if fw.stored.pixels.indices.contains(i) { fw.stored.pixels[i] = RGB($0); fw.schedulePixels() } })
+    private func pixelBinding(_ i: Int) -> Binding<RGB> {
+        Binding(get: { fw.stored.pixels.indices.contains(i) ? fw.stored.pixels[i] : .black },
+                set: { if fw.stored.pixels.indices.contains(i) { fw.stored.pixels[i] = $0; fw.schedulePixels() } })
     }
 
     /// 調色盤顏色數會隨切換燈效或按「−」改變,SwiftUI 可能用舊的索引去讀剛縮短的陣列而閃退,所以一律檢查範圍。
-    private func paletteBinding(_ i: Int) -> Binding<Color> {
-        Binding(get: { fw.stored.palette.indices.contains(i) ? fw.stored.palette[i].color : .clear },
-                set: { if fw.stored.palette.indices.contains(i) { fw.stored.palette[i] = RGB($0) } })
+    private func paletteBinding(_ i: Int) -> Binding<RGB> {
+        Binding(get: { fw.stored.palette.indices.contains(i) ? fw.stored.palette[i] : .black },
+                set: { if fw.stored.palette.indices.contains(i) { fw.stored.palette[i] = $0 } })
     }
 
     // MARK: 內建燈效
@@ -159,7 +156,7 @@ struct AdvancedLightView: View {
                 Text("配色").font(.subheadline.weight(.semibold))
                 ForEach(Array(fw.stored.palette.indices), id: \.self) { i in
                     HStack {
-                        ColorPicker("顏色 \(i + 1)", selection: paletteBinding(i), supportsOpacity: false)
+                        WheelColorPicker("顏色 \(i + 1)", color: paletteBinding(i))
                         if fw.stored.palette.count > 1 {
                             Button { if fw.stored.palette.indices.contains(i) { fw.stored.palette.remove(at: i) } } label: {
                                 Image(systemName: "minus.circle.fill").foregroundStyle(.red.opacity(0.85))

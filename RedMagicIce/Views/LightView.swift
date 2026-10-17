@@ -54,12 +54,7 @@ struct LightView: View {
                 }
             }
             VStack(alignment: .leading, spacing: 12) {
-                HStack {
-                    Text("顏色").font(.headline)
-                    Spacer()
-                    ColorPicker("自定義", selection: rgbBinding($light.settings.solid), supportsOpacity: false)
-                        .labelsHidden()
-                }
+                WheelColorPicker("顏色", color: $light.settings.solid).font(.headline)
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 5), spacing: 10) {
                     ForEach(CoolerProtocol.lightPresets) { p in
                         let c = RGB(r: p.r, g: p.g, b: p.b)
@@ -93,7 +88,7 @@ struct LightView: View {
             if case .software(let e) = active, e.usesColorList || e.usesSolidColor {
                 VStack(alignment: .leading, spacing: 12) {
                     if e.usesSolidColor {
-                        ColorPicker("主色", selection: rgbBinding($light.settings.solid), supportsOpacity: false)
+                        WheelColorPicker("主色", color: $light.settings.solid)
                     } else {
                         colorListEditor
                     }
@@ -110,9 +105,11 @@ struct LightView: View {
             Text("顏色序列").font(.headline)
             ForEach(Array(light.settings.colors.enumerated()), id: \.offset) { i, _ in
                 HStack {
-                    ColorPicker("顏色 \(i + 1)", selection: rgbBinding($light.settings.colors[i]), supportsOpacity: false)
+                    WheelColorPicker("顏色 \(i + 1)", color: Binding(
+                        get: { light.settings.colors.indices.contains(i) ? light.settings.colors[i] : .black },
+                        set: { if light.settings.colors.indices.contains(i) { light.settings.colors[i] = $0 } }))
                     if light.settings.colors.count > 1 {
-                        Button { light.settings.colors.remove(at: i) } label: {
+                        Button { if light.settings.colors.indices.contains(i) { light.settings.colors.remove(at: i) } } label: {
                             Image(systemName: "minus.circle.fill").foregroundStyle(.red.opacity(0.85))
                         }.buttonStyle(.plain)
                     }
@@ -160,12 +157,10 @@ struct LightView: View {
 
     private func linkRow(_ title: String, _ link: Binding<LinkedLight>) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack {
+            if link.wrappedValue.kind.usesColor {
+                WheelColorPicker(title, color: link.color).font(.subheadline.weight(.semibold))
+            } else {
                 Text(title).font(.subheadline.weight(.semibold))
-                Spacer()
-                if link.wrappedValue.kind.usesColor {
-                    ColorPicker("", selection: rgbBinding(link.color), supportsOpacity: false).labelsHidden()
-                }
             }
             FlowRow {
                 ForEach(HardwareLight.allCases) { k in

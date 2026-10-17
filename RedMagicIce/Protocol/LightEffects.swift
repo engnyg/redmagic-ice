@@ -17,6 +17,20 @@ struct RGB: Equatable, Codable, Hashable {
         return RGB(r: m(a.r, b.r), g: m(a.g, b.g), b: m(a.b, b.b))
     }
 
+    /// 反向轉換:h 0..<360、s/v 0...1(灰階與黑色的 h 為 0)
+    var hsv: (h: Double, s: Double, v: Double) {
+        let rr = Double(r) / 255, gg = Double(g) / 255, bb = Double(b) / 255
+        let mx = max(rr, gg, bb), mn = min(rr, gg, bb), d = mx - mn
+        var h = 0.0
+        if d > 0 {
+            if mx == rr { h = (gg - bb) / d; if h < 0 { h += 6 } }
+            else if mx == gg { h = (bb - rr) / d + 2 }
+            else { h = (rr - gg) / d + 4 }
+            h *= 60
+        }
+        return (h, mx == 0 ? 0 : d / mx, mx)
+    }
+
     /// h: 0..<360, s/v: 0...1
     static func hsv(_ h: Double, _ s: Double, _ v: Double) -> RGB {
         let hh = ((h.truncatingRemainder(dividingBy: 360)) + 360).truncatingRemainder(dividingBy: 360) / 60

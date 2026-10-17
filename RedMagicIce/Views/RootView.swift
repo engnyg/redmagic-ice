@@ -269,10 +269,10 @@ extension MoreView {
             case .aurora:
                 Text("極光背景會隨工作模式變色。").font(.caption).foregroundStyle(.white.opacity(0.6))
             case .solid:
-                ColorPicker("背景顏色", selection: rgbBinding($appearance.settings.color1), supportsOpacity: false)
+                WheelColorPicker("背景顏色", color: $appearance.settings.color1)
             case .gradient:
-                ColorPicker("起始顏色", selection: rgbBinding($appearance.settings.color1), supportsOpacity: false)
-                ColorPicker("結束顏色", selection: rgbBinding($appearance.settings.color2), supportsOpacity: false)
+                WheelColorPicker("起始顏色", color: $appearance.settings.color1)
+                WheelColorPicker("結束顏色", color: $appearance.settings.color2)
             case .photo:
                 HStack { Image(systemName: "drop"); Slider(value: $appearance.settings.blur, in: 0...30) }
                 if appearance.photo != nil {
