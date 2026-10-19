@@ -10,13 +10,13 @@ struct FirmwareFlashView: View {
     @EnvironmentObject var auto: AutoController
     @EnvironmentObject var library: FirmwareLibrary
 
-    static let confirmPhrase = "刷韌體導致的問題由我自行承擔"
+    static let confirmText = "刷韌體導致的問題由我自行承擔"
 
     @State private var picking = false
     @State private var fileName = ""
     @State private var image: Data?
     @State private var imageError: String?
-    @State private var typed = ""
+    @State private var ackRisk = false
     @State private var showTrace = false
     @State private var saveToLibrary = true
     @State private var ackOverclock = false
@@ -42,7 +42,7 @@ struct FirmwareFlashView: View {
          ("韌體檔通過驗證", image != nil && imageError == nil, image == nil ? "尚未選擇" : (imageError ?? "KNLT 標識、長度、CRC32 皆正確"))]
     }
     private var allOK: Bool { checks.allSatisfy { $0.1 } }
-    private var confirmed: Bool { typed.trimmingCharacters(in: .whitespaces) == Self.confirmPhrase && (!needsOverclockAck || ackOverclock) }
+    private var confirmed: Bool { ackRisk && (!needsOverclockAck || ackOverclock) }
 
     var body: some View {
         ZStack {
@@ -117,11 +117,7 @@ struct FirmwareFlashView: View {
                 Toggle("我了解這是第三方修改的超頻韌體,會突破風扇出廠限制,可能損壞風扇或散熱器、影響保固", isOn: $ackOverclock)
                     .font(.footnote).tint(.red)
             }
-            Text("請輸入以下句子以確認你了解風險:").font(.footnote).foregroundStyle(.white.opacity(0.7))
-            Text(Self.confirmPhrase).font(.subheadline.weight(.semibold)).foregroundStyle(.yellow)
-            TextField("在此輸入上面的句子", text: $typed)
-                .textInputAutocapitalization(.never).autocorrectionDisabled()
-                .padding(12).glass(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            checkRow(Self.confirmText, isOn: $ackRisk, tint: .yellow)
             Toggle("相容節奏(每包間隔 12 毫秒,較慢但更穩)", isOn: $ota.compatibilityPacing)
             GlassChip(title: "開始刷寫", symbol: "bolt.fill", selected: allOK && confirmed, tint: .red) {
                 guard allOK, confirmed, let img = image else { return }
@@ -132,6 +128,20 @@ struct FirmwareFlashView: View {
             if !allOK { Text("尚有檢查項目未通過,無法開始。").font(.caption).foregroundStyle(.orange) }
         }
         .foregroundStyle(.white).glassCard()
+    }
+
+    /// 打勾確認(取代原本的輸入句子)
+    private func checkRow(_ text: String, isOn: Binding<Bool>, tint: Color) -> some View {
+        Button { isOn.wrappedValue.toggle() } label: {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: isOn.wrappedValue ? "checkmark.square.fill" : "square")
+                    .font(.title3).foregroundStyle(isOn.wrappedValue ? tint : .white.opacity(0.6))
+                Text(text).font(.subheadline.weight(.semibold)).foregroundStyle(tint).multilineTextAlignment(.leading)
+                Spacer(minLength: 0)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: 韌體庫與辨識
@@ -198,7 +208,7 @@ struct FirmwareFlashView: View {
     }
 
     private func pick(_ it: FirmwareLibrary.Item) {
-        imageError = nil; typed = ""; ackOverclock = false
+        imageError = nil; ackRisk = false; ackOverclock = false
         guard let d = library.load(it) else { image = nil; imageError = "韌體庫中的檔案已損壞或被改動,已移除,請重新匯入"; return }
         image = d; fileName = it.fileName
     }
@@ -246,7 +256,7 @@ struct FirmwareFlashView: View {
     }
 
     private func load(_ r: Result<[URL], Error>) {
-        imageError = nil; image = nil; typed = ""; ackOverclock = false
+        imageError = nil; image = nil; ackRisk = false; ackOverclock = false
         guard case .success(let urls) = r, let url = urls.first else { imageError = "沒有選到檔案"; return }
         let scoped = url.startAccessingSecurityScopedResource()
         defer { if scoped { url.stopAccessingSecurityScopedResource() } }
