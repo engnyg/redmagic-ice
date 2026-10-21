@@ -39,7 +39,8 @@ struct CoolerTempResolver {
     mutating func resolve(applyOffset: Bool, preferStatus: Bool, now: TimeInterval) -> Float? {
         let s = fresh(raw1015, now).flatMap { _ in corrected1015(applyOffset: applyOffset) }
         let d = fresh(raw1014, now)
-        if let s, let d, abs(d - s) <= 12 { learnedDelta = d - s }
+        // 1015 停在下限時它的值不準,不拿來學差距(否則會把真實的低溫「學」掉)
+        if let s, let d, abs(d - s) <= 12, !statusAtFloor(now: now) { learnedDelta = d - s }
         if preferStatus {
             // 1015 是 `溫度+6` 的無號位元組,到 0 就停在下限(−6°C);比下限更冷時它不會再往下。
             // 這時改看 1014(扣掉學到的差),取較低的那個,讓顯示能低於 −6。
