@@ -196,3 +196,28 @@ final class FirmwarePalettePerEffectTests: XCTestCase {
         XCTAssertNotEqual(c.stored.palette.last, added)
     }
 }
+
+final class TempFloorTests: XCTestCase {
+    func testStatusFloorFallsThrough1014WhenColder() {
+        var r = CoolerTempResolver()
+        // 先在正常溫度學到差距:1015 raw 17 → 11;1014 = 11 → delta 0
+        r.note1015(raw: 17, now: 100); r.note1014(11, now: 100)
+        _ = r.resolve(applyOffset: true, preferStatus: true, now: 100)
+        // 變得比 −6 更冷:1015 停在 0(→ −6),1014 繼續往下
+        r.note1015(raw: 0, now: 200); r.note1014(-9, now: 200)
+        XCTAssertEqual(r.resolve(applyOffset: true, preferStatus: true, now: 200), -9)
+        XCTAssertTrue(r.statusAtFloor(now: 200))
+    }
+
+    func testFloorDoesNotRaiseReading() {
+        var r = CoolerTempResolver()
+        r.note1015(raw: 0, now: 0); r.note1014(5, now: 0)     // 1014 比 1015 floor 還高:仍以較低的 −6 為準
+        XCTAssertEqual(r.resolve(applyOffset: true, preferStatus: true, now: 0), -6)
+    }
+
+    func testNormalReadingNotAtFloor() {
+        var r = CoolerTempResolver()
+        r.note1015(raw: 17, now: 0)
+        XCTAssertFalse(r.statusAtFloor(now: 0))
+    }
+}

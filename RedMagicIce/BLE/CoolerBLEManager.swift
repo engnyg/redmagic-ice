@@ -53,6 +53,7 @@ final class CoolerBLEManager: NSObject, ObservableObject {
     private let lastNameKey = "lastPeripheralName"
     private var tempResolver = CoolerTempResolver()
     private var lastTempDisagreementLog = Date.distantPast
+    private var lastTempFloorLog = Date.distantPast
 
     /// 5 Pro / 6 Pro 的 1015 溫度不用 −6(與冰環一致);8 Pro 與還認不出機型的一律 −6。
     private var tempOffsetApplies: Bool {
@@ -66,6 +67,10 @@ final class CoolerBLEManager: NSObject, ObservableObject {
         // 8 Pro 以 1015 為主;其他機型以 1014 為主
         let preferStatus = CoolerModel.detect(name: deviceName) != .rm5Pro && CoolerModel.detect(name: deviceName) != .rm6Pro
         if let t = tempResolver.resolve(applyOffset: offset, preferStatus: preferStatus, now: now) { temperatureC = t }
+        if tempResolver.statusAtFloor(now: now), Date().timeIntervalSince(lastTempFloorLog) > 30 {
+            lastTempFloorLog = Date()
+            addLog("1015 溫度已到下限(原始值 0,只代表 ≤ −6°C),改參考 1014:\(temperatureC.map { String(format: "%.0f", $0) } ?? "--")°C")
+        }
         if let d = tempResolver.disagreement(applyOffset: offset, now: now), abs(d) >= 3,
            Date().timeIntervalSince(lastTempDisagreementLog) > 30 {
             lastTempDisagreementLog = Date()

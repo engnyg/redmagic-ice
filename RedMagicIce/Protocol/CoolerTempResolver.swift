@@ -24,6 +24,12 @@ struct CoolerTempResolver {
         return s.value
     }
 
+    /// 1015 的原始值是否已到下限 0(此時只代表「≤ −6°C」)
+    func statusAtFloor(now: TimeInterval) -> Bool {
+        guard let raw = fresh(raw1015, now) else { return false }
+        return raw <= 0
+    }
+
     /// 兩個來源差距(1014 − 校正後 1015),兩邊都新鮮時才有值
     func disagreement(applyOffset: Bool, now: TimeInterval) -> Float? {
         guard fresh(raw1015, now) != nil, let b = fresh(raw1014, now), let a = corrected1015(applyOffset: applyOffset) else { return nil }
@@ -35,6 +41,11 @@ struct CoolerTempResolver {
         let d = fresh(raw1014, now)
         if let s, let d, abs(d - s) <= 12 { learnedDelta = d - s }
         if preferStatus {
+            // 1015 是 `溫度+6` 的無號位元組,到 0 就停在下限(−6°C);比下限更冷時它不會再往下。
+            // 這時改看 1014(扣掉學到的差),取較低的那個,讓顯示能低於 −6。
+            if let s, let raw = fresh(raw1015, now), raw <= 0, let d {
+                return min(s, d - (learnedDelta ?? 0))
+            }
             if let s { return s }
             if let d { return d - (learnedDelta ?? 0) }
         } else {
