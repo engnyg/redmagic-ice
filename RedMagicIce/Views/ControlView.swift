@@ -82,27 +82,7 @@ struct ControlView: View {
                     GlassChip(title: "破壞神", symbol: "flame.fill", selected: boostOn, tint: .red) { ble.setBoost(!boostOn) }
                 }
             }
-            if boostOn { boostStrength }
         }
-    }
-
-    /// 破壞神強度:寫 1012 的值 80...90。實測(你的機器、V8.5.3):85 約 6460 RPM、90 約 7240 RPM,90 以上不會更快。
-    private var boostStrength: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Label("破壞神強度", systemImage: "flame.fill").font(.subheadline.weight(.semibold))
-                Spacer()
-                Text(ble.boostRaw == CoolerProtocol.boostRawMin ? "預設" : "加強 \(ble.boostRaw - CoolerProtocol.boostRawMin)")
-                    .font(.subheadline.monospacedDigit()).foregroundStyle(ble.boostRaw == CoolerProtocol.boostRawMin ? .white.opacity(0.7) : .orange)
-            }
-            Slider(value: Binding(get: { Double(ble.boostRaw) }, set: { ble.boostRaw = CoolerProtocol.clampBoostRaw(Int($0.rounded())) }),
-                   in: Double(CoolerProtocol.boostRawMin)...Double(CoolerProtocol.boostRawMax), step: 1) { editing in
-                if !editing { ble.setBoostRaw(ble.boostRaw) }
-            }
-            Text("80 是官方破壞神;越高越吵、越耗電。90 已到上限(約 7240 RPM、37 W),再高沒有用。請留意溫度與噪音,不要無人看管。")
-                .font(.caption2).foregroundStyle(.white.opacity(0.6))
-        }
-        .foregroundStyle(.white).glassCard(tint: .red)
     }
 
     private var autoCard: some View {

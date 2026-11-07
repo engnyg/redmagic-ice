@@ -234,11 +234,3 @@ final class ProtectionTests: XCTestCase {
         XCTAssertNil(CoolerProtocol.parseLowProtection(Data()))
     }
 }
-
-final class BoostRawTests: XCTestCase {
-    func testClampBoostRaw() {
-        XCTAssertEqual(CoolerProtocol.clampBoostRaw(50), 80)
-        XCTAssertEqual(CoolerProtocol.clampBoostRaw(85), 85)
-        XCTAssertEqual(CoolerProtocol.clampBoostRaw(255), 90)
-    }
-}
