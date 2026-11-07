@@ -221,3 +221,16 @@ final class TempFloorTests: XCTestCase {
         XCTAssertFalse(r.statusAtFloor(now: 0))
     }
 }
+
+final class ProtectionTests: XCTestCase {
+    func testPayloadMatchesOfficialWrite() {
+        XCTAssertEqual(CoolerProtocol.protectionPayload(lowProtection: true), Data([7, 0, 100, 0xE2]))
+        XCTAssertEqual(CoolerProtocol.protectionPayload(lowProtection: false), Data([3, 0, 100, 0xE2]))
+    }
+
+    func testParseLowProtection() {
+        XCTAssertEqual(CoolerProtocol.parseLowProtection(Data([7, 0, 100, 0xE2])), true)
+        XCTAssertEqual(CoolerProtocol.parseLowProtection(Data([3, 0, 100, 0xE2])), false)
+        XCTAssertNil(CoolerProtocol.parseLowProtection(Data()))
+    }
+}

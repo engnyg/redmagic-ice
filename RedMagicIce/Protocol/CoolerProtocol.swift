@@ -103,6 +103,18 @@ enum CoolerProtocol {
         return (-40...80).contains(t) ? t : nil
     }
 
+    // MARK: 保護機制(101F)
+    /// 冰環 2.10.46 的 writeProtectionSettings:`[flag, 0, 高溫閾值, 低溫閾值]`,
+    /// flag = 3(過熱保護,固定開) | 4(過冷保護)。閾值固定寫 100 / −30(0xE2)。
+    static func protectionPayload(lowProtection: Bool) -> Data {
+        Data([UInt8(3 | (lowProtection ? 4 : 0)), 0, 100, UInt8(bitPattern: -30)])
+    }
+
+    static func parseLowProtection(_ v: Data) -> Bool? {
+        guard let f = v.first else { return nil }
+        return (f & 4) != 0
+    }
+
     static func parseRpm(_ v: Data) -> Int? {
         let b = [UInt8](v)
         if b.count >= 3 && b[0] == 8 { return Int(b[1]) << 8 | Int(b[2]) }

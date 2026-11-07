@@ -121,6 +121,7 @@ struct MoreView: View {
     @State private var showProbe = false
     @State private var showAbout = false
     @State private var showFlash = false
+    @State private var confirmLowProtectionOff = false
     @State private var pickedPhoto: PhotosPickerItem?
     @State private var showPositionEditor = false
     @State private var showVideoImporter = false
@@ -152,6 +153,8 @@ struct MoreView: View {
                         }
                     }
                 }.foregroundStyle(.white).glassCard()
+                SectionTitle("保護")
+                protectionCard
                 SectionTitle("裝置")
                 VStack(alignment: .leading, spacing: 8) {
                     Text(ble.deviceName).font(.headline)
@@ -246,6 +249,36 @@ struct MoreView: View {
                 }
                 .navigationTitle("日誌").navigationBarTitleDisplayMode(.inline)
             }
+        }
+    }
+}
+
+extension MoreView {
+    var protectionCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Toggle("過冷保護", isOn: Binding(
+                get: { ble.lowProtection ?? true },
+                set: { on in
+                    if on { ble.setLowProtection(true) } else { confirmLowProtectionOff = true }
+                }))
+                .disabled(!ble.connected || ble.lowProtection == nil)
+            Text(ble.lowProtection == nil
+                 ? "沒有讀到設備的保護設定(未連線,或這台不支援)。"
+                 : "低負載固定制冷時,冷面溫度過低會觸發藍燈預警,嚴重時設備會自動關機以降低凝露風險。")
+                .font(.caption).foregroundStyle(.white.opacity(0.65))
+            if ble.lowProtection == false {
+                Text("已關閉:冷面可能一直降到結露,水氣可能進入手機或散熱器。請不要無人看管。")
+                    .font(.caption.weight(.semibold)).foregroundStyle(.orange)
+            }
+            Text("過熱保護(過熱時自動降功率並亮紅燈)固定開啟,官方 App 也不提供關閉。")
+                .font(.caption2).foregroundStyle(.white.opacity(0.5))
+        }
+        .foregroundStyle(.white).glassCard()
+        .confirmationDialog("關閉過冷保護?", isPresented: $confirmLowProtectionOff, titleVisibility: .visible) {
+            Button("關閉過冷保護", role: .destructive) { ble.setLowProtection(false) }
+            Button("取消", role: .cancel) {}
+        } message: {
+            Text("關閉後設備不會因為冷面太冷而自動關機,結露可能損壞手機。")
         }
     }
 }

@@ -40,6 +40,7 @@ final class CoolerBLEManager: NSObject, ObservableObject {
     @Published var log: [String] = []
     @Published var lastWriteError: String?
     @Published var lightNoResponseSupported = false   // 1013 是否支援免回覆寫入(快速燈效)
+    @Published var lowProtection: Bool?     // 101F 讀回:過冷保護是否開啟(nil = 不支援或尚未讀到)
     @Published var lastLightRaw: String?   // 1013 讀回/通知(燈光探測用)
     @Published var fanReadback: Int?     // 1012 讀回值(超頻探測用)
 
@@ -225,6 +226,17 @@ final class CoolerBLEManager: NSObject, ObservableObject {
         pump()
     }
 
+    /// 過冷保護(101F)。與官方 App 相同的寫法;寫完再讀回確認實際狀態。
+    func setLowProtection(_ on: Bool) {
+        guard chars[.protection] != nil else { addLog("缺少 101F,無法設定過冷保護"); return }
+        write(.protection, CoolerProtocol.protectionPayload(lowProtection: on), on ? "過冷保護 ON" : "過冷保護 OFF")
+        lowProtection = on
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
+            guard let self, let p = self.peripheral, let ch = self.chars[.protection], ch.properties.contains(.read) else { return }
+            p.readValue(for: ch)
+        }
+    }
+
     func sendFirmwareStopIfNeeded() { firmwareLightActive = true; sendFirmwareStopIfActive() }
 
     private func sendFirmwareStopIfActive() {
@@ -398,6 +410,7 @@ extension CoolerBLEManager: CBPeripheralDelegate {
         case .power, .powerAlt: if let w = CoolerProtocol.parsePower(v) { powerW = w }
         case .powerMode: if let b = v.first { running = (b == 2) ; if b == 3 { mode = .idle } }
         case .fanMode: fanReadback = v.first.map(Int.init)
+        case .protection: if let b = CoolerProtocol.parseLowProtection(v) { lowProtection = b }
         case .light: lastLightRaw = v.map { String(format: "%02X", $0) }.joined(separator: " ")
         case .autoTemp: if v.first == 1 { mode = .smart }
         case .boost: if v.first == 1 { mode = .boost }
