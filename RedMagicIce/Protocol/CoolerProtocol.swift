@@ -103,6 +103,12 @@ enum CoolerProtocol {
         return (-40...80).contains(t) ? t : nil
     }
 
+    // MARK: 破壞神強度
+    /// 破壞神開著時,韌體仍會依 1012 的值決定轉速,直到約 90 到頂(實測:85≈6460、90≈7240 RPM,更高無效)。
+    static let boostRawMin = 80
+    static let boostRawMax = 90
+    static func clampBoostRaw(_ v: Int) -> Int { min(max(v, boostRawMin), boostRawMax) }
+
     // MARK: 保護機制(101F)
     /// 冰環 2.10.46 的 writeProtectionSettings:`[flag, 0, 高溫閾值, 低溫閾值]`,
     /// flag = 3(過熱保護,固定開) | 4(過冷保護)。閾值固定寫 100 / −30(0xE2)。

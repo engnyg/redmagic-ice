@@ -40,6 +40,8 @@ final class CoolerBLEManager: NSObject, ObservableObject {
     @Published var log: [String] = []
     @Published var lastWriteError: String?
     @Published var lightNoResponseSupported = false   // 1013 是否支援免回覆寫入(快速燈效)
+    /// 破壞神強度(寫給 1012 的值,80 = 官方預設,最高 90)
+    @Published var boostRaw: Int = CoolerProtocol.clampBoostRaw(UserDefaults.standard.object(forKey: "boostRaw") as? Int ?? 80)
     @Published var lowProtection: Bool?     // 101F 讀回:過冷保護是否開啟(nil = 不支援或尚未讀到)
     @Published var lastLightRaw: String?   // 1013 讀回/通知(燈光探測用)
     @Published var fanReadback: Int?     // 1012 讀回值(超頻探測用)
@@ -160,7 +162,7 @@ final class CoolerBLEManager: NSObject, ObservableObject {
             return
         }
         write(.powerMode, CoolerProtocol.powerOn, "確認散熱 ON")
-        write(.fanMode, CoolerProtocol.fanLevel(index: CoolerProtocol.fanLevelValues.count - 1), "基準最高檔")
+        write(.fanMode, Data([UInt8(boostRaw)]), boostRaw == CoolerProtocol.boostRawMin ? "基準最高檔" : "破壞神強度 \(boostRaw)")
         write(.boost, CoolerProtocol.flag(true), "破壞神 ON")
         for (delay, label) in [(1.3, "二次確認"), (2.1, "三次確認")] {
             DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
@@ -171,6 +173,14 @@ final class CoolerBLEManager: NSObject, ObservableObject {
             }
         }
         mode = .boost
+    }
+
+    /// 調整破壞神強度;破壞神開著時立刻寫給設備,否則只記下,下次開破壞神時使用。
+    func setBoostRaw(_ v: Int) {
+        let n = CoolerProtocol.clampBoostRaw(v)
+        boostRaw = n
+        UserDefaults.standard.set(n, forKey: "boostRaw")
+        if case .boost = mode { write(.fanMode, Data([UInt8(n)]), "破壞神強度 \(n)") }
     }
 
     /// 自動溫控專用:只寫 1012(模式切換的前置寫入已在 start 時由 setManual 完成)
